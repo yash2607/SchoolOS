@@ -6,7 +6,7 @@ export default function AuthLayout(): React.JSX.Element {
 
   // If authenticated, redirect to main app
   if (!isLoading && isAuthenticated) {
-    return <Redirect href="/(tabs)/" />;
+    return <Redirect href="/(tabs)" />;
   }
 
   return (

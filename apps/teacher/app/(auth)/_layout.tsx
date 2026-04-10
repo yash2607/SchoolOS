@@ -5,7 +5,7 @@ export default function AuthLayout(): React.JSX.Element {
   const { isAuthenticated, isLoading } = useAuthStore();
 
   if (!isLoading && isAuthenticated) {
-    return <Redirect href="/(tabs)/" />;
+    return <Redirect href="/(tabs)" />;
   }
 
   return (

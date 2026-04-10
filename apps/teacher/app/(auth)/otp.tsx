@@ -69,7 +69,7 @@ export default function TeacherOtpScreen(): React.JSX.Element {
       }>("/api/v1/auth/otp/verify", { mobile, otp: otpCode });
       await tokenStorage.setTokens(response.data.accessToken, response.data.refreshToken);
       setAuth(response.data.user as AuthUser, response.data.school, response.data.teacherId);
-      router.replace("/(tabs)/");
+      router.replace("/(tabs)");
     } catch (err) {
       setError(extractApiError(err).error.message);
       shakeInputs();

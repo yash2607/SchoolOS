@@ -98,7 +98,7 @@ export default function OtpScreen(): React.JSX.Element {
       );
 
       setAuth(response.data.user as AuthUser, response.data.school);
-      router.replace("/(tabs)/");
+      router.replace("/(tabs)");
     } catch (err) {
       const apiError = extractApiError(err);
       setError(apiError.error.message);
