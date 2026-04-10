@@ -1,0 +1,33 @@
+{
+  "name": "@schoolos/api",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@schoolos/config": "workspace:*",
+    "@schoolos/types": "workspace:*",
+    "@tanstack/react-query": "^5.62.7",
+    "axios": "^1.7.9"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "@types/node": "^22.9.0",
+    "react": "^18.3.1",
+    "@types/react": "^18.3.12"
+  }
+}

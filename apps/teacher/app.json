@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "SchoolOS Teacher",
+    "slug": "schoolos-teacher",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "schoolos-teacher",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1B3A6B"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.schoolos.teacher"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1B3A6B"
+      },
+      "package": "com.schoolos.teacher"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "expo-sqlite",
+      ["expo-notifications", { "color": "#1B3A6B" }],
+      ["expo-local-authentication", { "faceIDPermission": "Use Face ID to securely log in" }]
+    ],
+    "experiments": { "typedRoutes": true },
+    "extra": { "eas": { "projectId": "REPLACE_WITH_EAS_PROJECT_ID" } }
+  }
+}

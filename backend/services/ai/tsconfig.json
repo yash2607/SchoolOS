@@ -1,0 +1,27 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@nestjs/common": ["./node_modules/@nestjs/common"],
+      "@nestjs/core": ["./node_modules/@nestjs/core"],
+      "@nestjs/config": ["./node_modules/@nestjs/config"],
+      "@nestjs/jwt": ["./node_modules/@nestjs/jwt"],
+      "@nestjs/swagger": ["./node_modules/@nestjs/swagger"],
+      "@nestjs/typeorm": ["./node_modules/@nestjs/typeorm"],
+      "@schoolos/types": ["./node_modules/@schoolos/types"],
+      "rxjs": ["./node_modules/rxjs"],
+      "rxjs/operators": ["./node_modules/rxjs/operators"],
+      "express": ["./node_modules/@types/express"]
+    },
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": false,
+    "lib": ["ES2022"]
+  },
+  "include": ["src/**/*", "../../../libs/**/*.ts"],
+  "exclude": ["dist", "node_modules"]
+}

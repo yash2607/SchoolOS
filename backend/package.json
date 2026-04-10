@@ -1,0 +1,14 @@
+{
+  "name": "@schoolos/backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build --filter=./services/*",
+    "dev": "turbo run dev --filter=./services/* --parallel",
+    "migrate": "ts-node -r tsconfig-paths/register migrations/runner.ts",
+    "create-tenant": "ts-node -r tsconfig-paths/register migrations/createTenant.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3"
+  }
+}
