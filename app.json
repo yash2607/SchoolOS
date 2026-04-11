@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "99882181-de30-4a6c-ba5a-04a36f2890df"
+      }
+    },
+    "android": {
+      "package": "com.yash2607.schoolosmonorepo"
+    }
+  }
+}

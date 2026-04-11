@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { tokenStorage } from "../lib/tokenStorage.js";
 import { apiClient } from "../lib/api.js";
+import axios from "axios";
 
 export interface AdminUser {
   id: string;
@@ -25,7 +26,7 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       isAuthenticated: false,
       isLoading: true,
@@ -36,11 +37,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: async () => {
-        try {
-          await apiClient.post("/api/v1/auth/logout");
-        } catch {
-          // ignore errors on logout
-        }
+        try { await apiClient.post("/api/v1/auth/logout"); } catch { /* ignore */ }
         await tokenStorage.clearTokens();
         set({ user: null, isAuthenticated: false });
       },
@@ -52,20 +49,27 @@ export const useAuthStore = create<AuthState>()(
         try {
           const token = await tokenStorage.getAccessToken();
           if (!token) {
-            set({ isLoading: false });
+            // No token — but if we have persisted user, keep them logged in
+            const { user } = get();
+            set({ isLoading: false, isAuthenticated: !!user });
             return;
           }
           const { data } = await apiClient.get<{ user: AdminUser; school: { name: string } }>(
             "/api/v1/auth/me"
           );
-          const user: AdminUser = {
-            ...data.user,
-            schoolName: data.school?.name ?? "",
-          };
+          const user: AdminUser = { ...data.user, schoolName: data.school?.name ?? "" };
           set({ user, isAuthenticated: true, isLoading: false });
-        } catch {
-          await tokenStorage.clearTokens();
-          set({ user: null, isAuthenticated: false, isLoading: false });
+        } catch (err) {
+          // Only logout on 401 Unauthorized — keep session on network errors
+          const status = axios.isAxiosError(err) ? err.response?.status : null;
+          if (status === 401) {
+            await tokenStorage.clearTokens();
+            set({ user: null, isAuthenticated: false, isLoading: false });
+          } else {
+            // Network error / timeout — keep existing auth state from localStorage
+            const { user } = get();
+            set({ isLoading: false, isAuthenticated: !!user });
+          }
         }
       },
     }),
