@@ -8,6 +8,7 @@
     "start:tunnel": "expo start --tunnel",
     "android": "expo run:android",
     "ios": "expo run:ios",
+    "eas-build-post-install": "pnpm --dir ../.. run build:packages",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },
