@@ -2,6 +2,7 @@ const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
 const { exclusionList } = require("metro-config");
 const path = require("path");
+const { pathToFileURL } = require("url");
 
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, "../..");
@@ -11,23 +12,27 @@ const config = getDefaultConfig(projectRoot);
 // Watch monorepo root
 config.watchFolders = [workspaceRoot];
 
-// Resolve node_modules properly for pnpm
+// Fix for pnpm
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
-// Required for pnpm + monorepo
 config.resolver.unstable_enableSymlinks = true;
 config.resolver.disableHierarchicalLookup = true;
 
-// Keep default blockList + add custom
+// Fix blocklist
 config.resolver.blockList = exclusionList([
   /.*_tmp_.*\/.*/,
   /.*\.git\/.*/,
 ]);
 
+// 👇 IMPORTANT FIX (convert path → file URL)
+const globalCssPath = pathToFileURL(
+  path.resolve(projectRoot, "global.css")
+).toString();
+
 module.exports = withNativeWind(config, {
-  input: path.resolve(projectRoot, "global.css"), // IMPORTANT for EAS
+  input: globalCssPath,
   inlineRem: 16,
 });
