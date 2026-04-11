@@ -11,8 +11,9 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api/v1');
 
+  const allowedOrigins = process.env['ALLOWED_ORIGINS']?.split(',') ?? [];
   app.enableCors({
-    origin: process.env['ALLOWED_ORIGINS']?.split(',') ?? ['http://localhost:3000'],
+    origin: allowedOrigins.length > 0 ? allowedOrigins : true, // true = allow all in dev
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
