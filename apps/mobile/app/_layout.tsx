@@ -4,11 +4,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import Toast from "react-native-toast-message";
-import { createQueryClient, configureApiClient } from "@schoolos/api";
+import { createQueryClient, configureApiClient, apiClient } from "@schoolos/api";
 import { tokenStorage } from "../lib/tokenStorage";
 
 const queryClient = createQueryClient();
 
+apiClient.defaults.baseURL = "https://api.vidyalay.online";
 configureApiClient(tokenStorage);
 
 export default function RootLayout(): React.JSX.Element {
