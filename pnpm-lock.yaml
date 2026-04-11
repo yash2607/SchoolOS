@@ -302,6 +302,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -366,6 +369,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -430,6 +436,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -494,6 +503,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -558,6 +570,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -622,6 +637,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -686,6 +704,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -750,6 +771,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -814,6 +838,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -878,6 +905,9 @@ importers:
       '@types/node':
         specifier: ^22.9.0
         version: 22.19.17
+      ts-loader:
+        specifier: ^9.5.2
+        version: 9.5.7(typescript@5.9.3)(webpack@5.97.1)
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
@@ -7626,6 +7656,13 @@ packages:
         optional: true
       jest-util:
         optional: true
+
+  ts-loader@9.5.7:
+    resolution: {integrity: sha512-/ZNrKgA3K3PtpMYOC71EeMWIloGw3IYEa5/t1cyz2r5/PyUwTXGzYJvcD3kfUvmhlfpz1rhV8B2O6IVTQ0avsg==}
+    engines: {node: '>=12.0.0'}
+    peerDependencies:
+      typescript: '*'
+      webpack: ^5.0.0
 
   ts-object-utils@0.0.5:
     resolution: {integrity: sha512-iV0GvHqOmilbIKJsfyfJY9/dNHCs969z3so90dQWsO1eMMozvTpnB1MEaUbb3FYtZTGjv5sIy/xmslEz0Rg2TA==}
@@ -16809,6 +16846,16 @@ snapshots:
       '@jest/types': 29.6.3
       babel-jest: 29.7.0(@babel/core@7.29.0)
       jest-util: 29.7.0
+
+  ts-loader@9.5.7(typescript@5.9.3)(webpack@5.97.1):
+    dependencies:
+      chalk: 4.1.2
+      enhanced-resolve: 5.20.1
+      micromatch: 4.0.8
+      semver: 7.7.4
+      source-map: 0.7.4
+      typescript: 5.9.3
+      webpack: 5.97.1
 
   ts-object-utils@0.0.5: {}
 
