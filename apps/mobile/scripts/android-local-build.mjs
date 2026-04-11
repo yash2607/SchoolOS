@@ -31,10 +31,12 @@ function run(command, commandArgs, options = {}) {
   }
 }
 
-const pnpmCmd = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-
 console.log("Building workspace packages...");
-run(pnpmCmd, ["--dir", workspaceRoot, "run", "build:packages"]);
+if (process.platform === "win32") {
+  run("cmd.exe", ["/c", "pnpm", "--dir", workspaceRoot, "run", "build:packages"]);
+} else {
+  run("pnpm", ["--dir", workspaceRoot, "run", "build:packages"]);
+}
 
 console.log(`Generating Android native project${clean ? " (clean)" : ""}...`);
 run(process.execPath, [
