@@ -1,33 +1,82 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import Redis from 'ioredis';
 import twilio from 'twilio';
+import { REDIS_CLIENT } from './redis.provider';
+
+const OTP_TTL_SECONDS = 300; // 5 minutes
+const MAX_ATTEMPTS = 5;
+
+interface OtpData {
+  otp: string;
+  attempts: number;
+}
 
 @Injectable()
 export class OtpService {
-  private readonly client: ReturnType<typeof twilio> | null = null;
-  private readonly verifySid: string | null = null;
+  private readonly twilioClient: ReturnType<typeof twilio> | null = null;
+  private readonly accountSid: string | null = null;
+  private readonly whatsappFrom: string;
+  private readonly contentSid: string | null = null;
 
-  constructor(private readonly config: ConfigService) {
-    const accountSid = config.get<string>('TWILIO_ACCOUNT_SID');
+  constructor(
+    @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly config: ConfigService,
+  ) {
+    this.accountSid = config.get<string>('TWILIO_ACCOUNT_SID') ?? null;
     const authToken = config.get<string>('TWILIO_AUTH_TOKEN');
-    this.verifySid = config.get<string>('TWILIO_VERIFY_SID') ?? null;
+    this.whatsappFrom =
+      config.get<string>('TWILIO_WHATSAPP_FROM') ?? 'whatsapp:+14155238886';
+    this.contentSid =
+      config.get<string>('TWILIO_WHATSAPP_CONTENT_SID') ?? null;
 
-    if (accountSid && authToken && this.verifySid) {
-      this.client = twilio(accountSid, authToken);
-      console.log('[OTP] Twilio Verify configured');
+    if (this.accountSid && authToken) {
+      this.twilioClient = twilio(this.accountSid, authToken);
+      console.log('[OTP] Twilio WhatsApp configured ✓');
     } else {
-      console.warn('[OTP] Twilio not configured — OTPs will be logged to console');
+      console.warn('[OTP] Twilio not configured — OTPs logged to console only');
     }
   }
 
+  private redisKey(mobile: string) {
+    return `otp:${mobile}`;
+  }
+
+  private generateCode(): string {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+  }
+
   async sendOtp(mobile: string): Promise<void> {
-    if (this.client && this.verifySid) {
-      await this.client.verify.v2
-        .services(this.verifySid)
-        .verifications.create({ to: mobile, channel: 'sms' });
+    const otp = this.generateCode();
+
+    // Store in Redis
+    const data: OtpData = { otp, attempts: 0 };
+    await this.redis.set(
+      this.redisKey(mobile),
+      JSON.stringify(data),
+      'EX',
+      OTP_TTL_SECONDS,
+    );
+
+    if (this.twilioClient && this.accountSid) {
+      // Send via WhatsApp
+      const to = mobile.startsWith('whatsapp:') ? mobile : `whatsapp:${mobile}`;
+      await this.twilioClient.messages.create({
+        from: this.whatsappFrom,
+        to,
+        ...(this.contentSid
+          ? {
+              contentSid: this.contentSid,
+              contentVariables: JSON.stringify({ '1': otp }),
+            }
+          : {
+              // Fallback: plain text (sandbox supports this)
+              body: `Your SchoolOS OTP is: ${otp}. Valid for 5 minutes.`,
+            }),
+      });
+      console.log(`[OTP] WhatsApp sent to ${mobile}`);
     } else {
-      // Fallback: log to console (visible in Railway logs)
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      // Dev fallback — print to Railway logs
       console.log(`[OTP] ${mobile} → ${otp}`);
     }
   }
@@ -36,18 +85,29 @@ export class OtpService {
     mobile: string,
     code: string,
   ): Promise<{ valid: boolean; reason?: string }> {
-    if (this.client && this.verifySid) {
-      try {
-        const check = await this.client.verify.v2
-          .services(this.verifySid)
-          .verificationChecks.create({ to: mobile, code });
-        if (check.status === 'approved') return { valid: true };
-        return { valid: false, reason: 'Invalid OTP' };
-      } catch {
-        return { valid: false, reason: 'OTP verification failed' };
-      }
+    const raw = await this.redis.get(this.redisKey(mobile));
+    if (!raw) return { valid: false, reason: 'OTP expired or not sent' };
+
+    const data: OtpData = JSON.parse(raw) as OtpData;
+
+    if (data.attempts >= MAX_ATTEMPTS) {
+      return { valid: false, reason: 'Too many attempts. Request a new OTP.' };
     }
-    // Fallback: can't verify without Twilio, always fail
-    return { valid: false, reason: 'OTP service not configured' };
+
+    if (data.otp !== code) {
+      data.attempts++;
+      const ttl = await this.redis.ttl(this.redisKey(mobile));
+      await this.redis.set(
+        this.redisKey(mobile),
+        JSON.stringify(data),
+        'EX',
+        ttl > 0 ? ttl : OTP_TTL_SECONDS,
+      );
+      return { valid: false, reason: 'Invalid OTP' };
+    }
+
+    // Correct — delete it so it can't be reused
+    await this.redis.del(this.redisKey(mobile));
+    return { valid: true };
   }
 }
