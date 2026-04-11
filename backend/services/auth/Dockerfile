@@ -1,6 +1,6 @@
 # ── Stage 1: install deps ─────────────────────────────────────────────────────
 FROM node:22-alpine AS deps
-RUN npm install -g pnpm@10.33.0
+RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
