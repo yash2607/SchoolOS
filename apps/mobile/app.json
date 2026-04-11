@@ -3,10 +3,18 @@
     "name": "SchoolOS",
     "slug": "schoolos",
     "version": "1.0.0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "schoolos",
     "userInterfaceStyle": "light",
+    "updates": {
+      "url": "https://u.expo.dev/e0da3dc6-ba93-492f-b7b2-1e408d205cf4",
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
