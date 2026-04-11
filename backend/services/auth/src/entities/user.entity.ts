@@ -8,32 +8,32 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   email: string | null;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ type: 'varchar', nullable: true, unique: true })
   mobileE164: string | null;
 
   @Column({ type: 'varchar', default: 'PARENT' })
   role: UserRole;
 
-  @Column()
+  @Column({ type: 'uuid' })
   schoolId: string;
 
   @ManyToOne(() => School)
   @JoinColumn({ name: 'schoolId' })
   school: School;
 
-  @Column({ default: true })
+  @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   ssoProvider: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   lastLoginAt: Date | null;
 
   @CreateDateColumn()

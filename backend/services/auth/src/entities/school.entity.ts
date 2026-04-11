@@ -5,16 +5,16 @@ export class School {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ default: 'Asia/Kolkata' })
+  @Column({ type: 'varchar', default: 'Asia/Kolkata' })
   timezone: string;
 
   @Column({ type: 'varchar', nullable: true })
   logoUrl: string | null;
 
-  @Column({ default: true })
+  @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
   @CreateDateColumn()

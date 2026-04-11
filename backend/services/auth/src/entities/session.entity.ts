@@ -6,20 +6,20 @@ export class Session {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ type: 'uuid' })
   userId: string;
 
   @ManyToOne(() => User)
   @JoinColumn({ name: 'userId' })
   user: User;
 
-  @Column()
+  @Column({ type: 'varchar' })
   refreshTokenHash: string;
 
-  @Column()
+  @Column({ type: 'timestamptz' })
   expiresAt: Date;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   revokedAt: Date | null;
 
   @CreateDateColumn()
