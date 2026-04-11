@@ -11,7 +11,7 @@ export class School {
   @Column({ default: 'Asia/Kolkata' })
   timezone: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   logoUrl: string | null;
 
   @Column({ default: true })
