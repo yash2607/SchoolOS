@@ -18,17 +18,12 @@ export class AuthService {
   ) {}
 
   async sendOtp(mobile: string): Promise<{ message: string; expiresIn: number }> {
-    const otp = await this.otpService.generateAndStore(mobile);
-
-    // TODO: Send via SMS provider (Twilio/MSG91)
-    // For now log to console (visible in Railway deploy logs)
-    console.log(`[OTP] ${mobile} → ${otp}`);
-
+    await this.otpService.sendOtp(mobile);
     return { message: 'OTP sent successfully', expiresIn: 300 };
   }
 
   async verifyOtp(mobile: string, otp: string) {
-    const result = await this.otpService.verify(mobile, otp);
+    const result = await this.otpService.verifyOtp(mobile, otp);
     if (!result.valid) {
       throw new UnauthorizedException(result.reason ?? 'Invalid OTP');
     }
