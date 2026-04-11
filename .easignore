@@ -8,6 +8,10 @@
 **/.expo/
 *.docx
 
+# Keep built workspace package outputs for Expo/EAS monorepo resolution
+!packages/*/dist/
+!packages/*/dist/**
+
 # Exclude backend SOURCE files but keep package.json for pnpm workspace resolution
 backend/services/*/src/
 backend/services/*/test/
