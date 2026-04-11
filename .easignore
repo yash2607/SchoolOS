@@ -7,5 +7,16 @@
 **/build/
 **/.expo/
 *.docx
-backend/
-apps/admin/
+
+# Exclude backend SOURCE files but keep package.json for pnpm workspace resolution
+backend/services/*/src/
+backend/services/*/test/
+backend/services/*/.env*
+backend/libs/*/src/
+backend/libs/*/test/
+
+# Exclude admin SOURCE files but keep package.json
+apps/admin/src/
+apps/admin/public/
+apps/admin/.env*
+apps/admin/dist/
