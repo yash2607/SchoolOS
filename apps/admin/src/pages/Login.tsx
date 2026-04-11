@@ -1,9 +1,155 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, type AdminUser } from "../store/authStore.js";
 import { apiClient } from "../lib/api.js";
 
 type Step = "phone" | "otp";
+
+const S: Record<string, CSSProperties> = {
+  page: {
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    background: "linear-gradient(135deg, #0f1f3d 0%, #1b3a6b 60%, #0f1f3d 100%)",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  },
+  card: {
+    display: "flex",
+    width: "100%",
+    maxWidth: 960,
+    minHeight: 560,
+    borderRadius: 24,
+    overflow: "hidden",
+    boxShadow: "0 32px 64px rgba(0,0,0,0.4)",
+  },
+  left: {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    padding: 48,
+    width: "45%",
+    background: "linear-gradient(160deg, #1B3A6B 0%, #0c1a33 100%)",
+    flexShrink: 0,
+  },
+  right: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    padding: 48,
+    background: "#ffffff",
+  },
+  logoRow: { display: "flex", alignItems: "center", gap: 10 },
+  logoBox: {
+    width: 40, height: 40,
+    borderRadius: 12,
+    background: "#2E7DD1",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontWeight: 800, fontSize: 18, color: "#fff",
+  },
+  logoText: { fontSize: 20, fontWeight: 700, color: "#fff" },
+  badge: {
+    display: "inline-flex", alignItems: "center", gap: 8,
+    padding: "4px 12px", borderRadius: 999,
+    background: "rgba(255,255,255,0.08)",
+    border: "1px solid rgba(255,255,255,0.12)",
+    fontSize: 11, color: "rgba(255,255,255,0.6)", marginBottom: 16,
+  },
+  dot: { width: 6, height: 6, borderRadius: 999, background: "#4ade80" },
+  headline: {
+    fontSize: 36, fontWeight: 800, color: "#fff",
+    lineHeight: 1.25, margin: "0 0 12px",
+  },
+  accent: { color: "#2E7DD1" },
+  subtext: { fontSize: 15, color: "rgba(255,255,255,0.55)", lineHeight: 1.6 },
+  statsRow: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 32 },
+  statBox: {
+    borderRadius: 16, padding: "16px",
+    background: "rgba(255,255,255,0.06)",
+    border: "1px solid rgba(255,255,255,0.1)",
+  },
+  statValue: { fontSize: 22, fontWeight: 800, color: "#fff", margin: "0 0 2px" },
+  statLabel: { fontSize: 11, color: "rgba(255,255,255,0.45)" },
+  copyright: { fontSize: 11, color: "rgba(255,255,255,0.2)" },
+
+  // Right panel
+  heading: { fontSize: 26, fontWeight: 800, color: "#1A1A2E", margin: "0 0 6px" },
+  subheading: { fontSize: 14, color: "#6B7280", margin: "0 0 32px" },
+  label: { display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 8 },
+  phoneWrap: {
+    display: "flex", overflow: "hidden",
+    borderRadius: 12, border: "2px solid #E5E7EB",
+    transition: "border-color 0.2s",
+  },
+  phonePrefix: {
+    display: "flex", alignItems: "center", gap: 6,
+    padding: "0 16px", background: "#F9FAFB",
+    borderRight: "2px solid #E5E7EB",
+    fontSize: 14, fontWeight: 600, color: "#4A4A6A",
+    whiteSpace: "nowrap" as const,
+  },
+  phoneInput: {
+    flex: 1, padding: "14px 16px",
+    border: "none", outline: "none",
+    fontSize: 14, color: "#1A1A2E", background: "transparent",
+  },
+  input: {
+    width: "100%", padding: "14px 16px",
+    borderRadius: 12, border: "2px solid #E5E7EB",
+    fontSize: 14, color: "#1A1A2E", outline: "none",
+    boxSizing: "border-box" as const,
+    transition: "border-color 0.2s",
+  },
+  hint: { fontSize: 12, color: "#9CA3AF", marginTop: 6 },
+  error: {
+    display: "flex", alignItems: "flex-start", gap: 10,
+    padding: "12px 16px", borderRadius: 12,
+    background: "#FEF2F2", border: "1px solid #FECACA",
+    fontSize: 13, color: "#B91C1C", marginTop: 8,
+  },
+  btn: {
+    width: "100%", padding: "14px",
+    borderRadius: 12, border: "none",
+    fontSize: 14, fontWeight: 700, color: "#fff",
+    cursor: "pointer", transition: "background 0.2s",
+    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+    marginTop: 8,
+  },
+  btnPrimary: { background: "#1B3A6B" },
+  btnDisabled: { background: "#93C5FD", cursor: "not-allowed" },
+  backBtn: {
+    display: "flex", alignItems: "center", gap: 6,
+    background: "none", border: "none", cursor: "pointer",
+    fontSize: 13, color: "#6B7280", marginBottom: 24, padding: 0,
+  },
+  otpRow: { display: "flex", gap: 10, justifyContent: "space-between", margin: "0 0 24px" },
+  otpBoxFilled: {
+    width: 52, height: 56, borderRadius: 14,
+    border: "2px solid #1B3A6B", background: "#EFF6FF",
+    textAlign: "center" as const, fontSize: 22, fontWeight: 800,
+    color: "#1A1A2E", outline: "none", transition: "all 0.15s",
+  },
+  otpBoxEmpty: {
+    width: 52, height: 56, borderRadius: 14,
+    border: "2px solid #E5E7EB", background: "#F9FAFB",
+    textAlign: "center" as const, fontSize: 22, fontWeight: 800,
+    color: "#1A1A2E", outline: "none", transition: "all 0.15s",
+  },
+  resend: { textAlign: "center" as const, fontSize: 13, color: "#6B7280", marginTop: 20 },
+  resendBtnActive: {
+    background: "none", border: "none",
+    fontSize: 13, fontWeight: 700, color: "#2E7DD1",
+    cursor: "pointer", padding: 0,
+  },
+  resendBtnDisabled: {
+    background: "none", border: "none",
+    fontSize: 13, fontWeight: 700, color: "#9CA3AF",
+    cursor: "not-allowed", padding: 0,
+  },
+  footer: { fontSize: 11, color: "#D1D5DB", textAlign: "center" as const, marginTop: 32 },
+};
 
 export function LoginPage(): React.JSX.Element {
   const navigate = useNavigate();
@@ -16,7 +162,6 @@ export function LoginPage(): React.JSX.Element {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -29,296 +174,188 @@ export function LoginPage(): React.JSX.Element {
     return () => clearTimeout(t);
   }, [countdown]);
 
-  const formatPhone = (raw: string) => `+91${raw.replace(/\D/g, "")}`;
+  const fmt = (raw: string) => `+91${raw.replace(/\D/g, "")}`;
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  const sendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (phone.length < 10) { setError("Enter a valid 10-digit phone number"); return; }
     setLoading(true);
     try {
-      await apiClient.post("/api/v1/auth/otp/send", { mobile: formatPhone(phone) });
+      await apiClient.post("/api/v1/auth/otp/send", { mobile: fmt(phone) });
       setStep("otp");
       setCountdown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err: unknown) {
-      const e2 = err as { response?: { data?: { message?: string } } };
-      setError(e2?.response?.data?.message ?? "Failed to send OTP. Check your number and school code.");
+      const e2 = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e2?.response?.data?.message ?? e2?.message ?? "Network error — check your connection");
     } finally { setLoading(false); }
   };
 
-  const handleOtpChange = (index: number, value: string) => {
-    if (!/^\d*$/.test(value)) return;
-    const next = [...otp];
-    next[index] = value.slice(-1);
-    setOtp(next);
-    if (value && index < 5) otpRefs.current[index + 1]?.focus();
-    if (next.every((d) => d) && value) void handleVerifyOtp(next.join(""));
+  const otpChange = (i: number, val: string) => {
+    if (!/^\d*$/.test(val)) return;
+    const next = [...otp]; next[i] = val.slice(-1); setOtp(next);
+    if (val && i < 5) otpRefs.current[i + 1]?.focus();
+    if (next.every((d) => d) && val) void verifyOtp(next.join(""));
   };
 
-  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0) otpRefs.current[index - 1]?.focus();
+  const otpKey = (i: number, e: React.KeyboardEvent) => {
+    if (e.key === "Backspace" && !otp[i] && i > 0) otpRefs.current[i - 1]?.focus();
   };
 
-  const handleVerifyOtp = async (code?: string) => {
-    const otpCode = code ?? otp.join("");
-    if (otpCode.length !== 6) { setError("Enter all 6 digits"); return; }
-    setError("");
-    setLoading(true);
+  const verifyOtp = async (code?: string) => {
+    const c = code ?? otp.join("");
+    if (c.length !== 6) { setError("Enter all 6 digits"); return; }
+    setError(""); setLoading(true);
     try {
       const { data } = await apiClient.post<{
-        user: AdminUser;
-        school: { id: string; name: string };
-        accessToken: string;
-        refreshToken: string;
-      }>("/api/v1/auth/otp/verify", { mobile: formatPhone(phone), otp: otpCode });
+        user: AdminUser; school: { id: string; name: string };
+        accessToken: string; refreshToken: string;
+      }>("/api/v1/auth/otp/verify", { mobile: fmt(phone), otp: c });
       await setAuth({ ...data.user, schoolName: data.school?.name ?? "" }, data.accessToken, data.refreshToken);
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
-      const e2 = err as { response?: { data?: { message?: string } } };
-      setError(e2?.response?.data?.message ?? "Invalid OTP. Please try again.");
+      const e2 = err as { response?: { data?: { message?: string } }; message?: string };
+      setError(e2?.response?.data?.message ?? e2?.message ?? "Invalid OTP");
       setOtp(["", "", "", "", "", ""]);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } finally { setLoading(false); }
   };
 
-  const handleResend = async () => {
+  const resend = async () => {
     if (countdown > 0) return;
-    setError("");
-    setLoading(true);
+    setError(""); setLoading(true);
     try {
-      await apiClient.post("/api/v1/auth/otp/send", { mobile: formatPhone(phone) });
-      setCountdown(30);
-      setOtp(["", "", "", "", "", ""]);
+      await apiClient.post("/api/v1/auth/otp/send", { mobile: fmt(phone) });
+      setCountdown(30); setOtp(["", "", "", "", "", ""]);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } catch { setError("Failed to resend OTP"); }
     finally { setLoading(false); }
   };
 
+  const isDisabled = loading || (step === "phone" ? phone.length < 10 : otp.some((d) => !d));
+
   return (
-    <div className="relative flex min-h-screen overflow-hidden bg-[#0F1F3D]">
-      {/* Animated background blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-[#2E7DD1]/20 blur-3xl" />
-        <div className="absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-[#1B3A6B]/40 blur-3xl" />
-        <div className="absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#2E7DD1]/10 blur-2xl" />
-      </div>
+    <div style={S.page}>
+      <div style={S.card}>
 
-      {/* Left panel — branding (hidden on mobile) */}
-      <div className="relative hidden flex-col justify-between p-12 lg:flex lg:w-1/2">
-        {/* Logo */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E7DD1]">
-            <span className="text-lg font-bold text-white">S</span>
+        {/* ── Left branding panel ── */}
+        <div style={S.left}>
+          <div style={S.logoRow}>
+            <div style={S.logoBox}>S</div>
+            <span style={S.logoText}>SchoolOS</span>
           </div>
-          <span className="text-xl font-bold text-white">SchoolOS</span>
-        </div>
 
-        {/* Center content */}
-        <div>
-          <h1 className="mb-4 text-5xl font-bold leading-tight text-white">
-            Manage your school<br />
-            <span className="text-[#2E7DD1]">smarter.</span>
-          </h1>
-          <p className="text-lg text-white/60">
-            One platform for attendance, academics, fees, and communication.
-          </p>
-
-          {/* Stats row */}
-          <div className="mt-10 grid grid-cols-3 gap-6">
-            {[
-              { label: "Schools", value: "500+" },
-              { label: "Students", value: "2L+" },
-              { label: "Uptime", value: "99.9%" },
-            ].map(({ label, value }) => (
-              <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
-                <p className="text-2xl font-bold text-white">{value}</p>
-                <p className="text-sm text-white/50">{label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-sm text-white/30">© {new Date().getFullYear()} SchoolOS. All rights reserved.</p>
-      </div>
-
-      {/* Right panel — form */}
-      <div className="relative flex flex-1 items-center justify-center p-6 lg:p-12">
-        <div className="w-full max-w-md">
-          {/* Mobile logo */}
-          <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2E7DD1]">
-              <span className="text-lg font-bold text-white">S</span>
+          <div>
+            <div style={S.badge}>
+              <div style={S.dot} />
+              Admin Portal · Secure Login
             </div>
-            <span className="text-xl font-bold text-white">SchoolOS</span>
+            <h1 style={S.headline}>
+              Manage your school<br />
+              <span style={S.accent}>smarter.</span>
+            </h1>
+            <p style={S.subtext}>
+              Attendance, academics, fees &amp; communication — all in one place.
+            </p>
+            <div style={S.statsRow}>
+              {[["500+", "Schools"], ["2L+", "Students"], ["99.9%", "Uptime"]].map(([v, l]) => (
+                <div key={l} style={S.statBox}>
+                  <p style={S.statValue}>{v}</p>
+                  <p style={S.statLabel}>{l}</p>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Card */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-8 shadow-2xl backdrop-blur-xl">
-            {step === "phone" ? (
-              <>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-white">Welcome back</h2>
-                  <p className="mt-1 text-sm text-white/50">Sign in to your admin portal</p>
+          <p style={S.copyright}>© {new Date().getFullYear()} SchoolOS. All rights reserved.</p>
+        </div>
+
+        {/* ── Right form panel ── */}
+        <div style={S.right}>
+          {step === "phone" ? (
+            <>
+              <p style={S.heading}>Welcome back</p>
+              <p style={S.subheading}>Sign in with your phone number</p>
+
+              <form onSubmit={sendOtp}>
+                {/* Phone */}
+                <label style={S.label}>Phone Number</label>
+                <div style={S.phoneWrap}>
+                  <div style={S.phonePrefix}>🇮🇳 +91</div>
+                  <input
+                    style={S.phoneInput}
+                    type="tel" value={phone} autoFocus maxLength={10}
+                    placeholder="98765 43210"
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  />
+                  {phone.length === 10 && <div style={{ display: "flex", alignItems: "center", paddingRight: 12, color: "#1A7A4A", fontSize: 20 }}>✓</div>}
                 </div>
 
-                <form onSubmit={handleSendOtp} className="space-y-5">
-                  {/* Phone field */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-white/70">Phone Number</label>
-                    <div className="flex overflow-hidden rounded-xl border border-white/10 bg-white/5 transition focus-within:border-[#2E7DD1] focus-within:ring-2 focus-within:ring-[#2E7DD1]/30">
-                      <div className="flex items-center gap-2 border-r border-white/10 px-4">
-                        <span className="text-base">🇮🇳</span>
-                        <span className="text-sm font-medium text-white/60">+91</span>
-                      </div>
-                      <input
-                        type="tel"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                        placeholder="98765 43210"
-                        className="flex-1 bg-transparent px-4 py-3.5 text-sm text-white placeholder-white/30 outline-none"
-                        autoFocus
-                        maxLength={10}
-                      />
-                    </div>
-                  </div>
+                {/* School code */}
+                <div style={{ marginTop: 20 }}>
+                  <label style={S.label}>School Code</label>
+                  <input
+                    style={S.input} type="text" value={schoolCode}
+                    placeholder="e.g. DEMO01"
+                    onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
+                  />
+                  <p style={S.hint}>Provided by your school administrator</p>
+                </div>
 
-                  {/* School code field */}
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-white/70">School Code</label>
-                    <input
-                      type="text"
-                      value={schoolCode}
-                      onChange={(e) => setSchoolCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. DEMO01"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3.5 text-sm text-white placeholder-white/30 outline-none transition focus:border-[#2E7DD1] focus:ring-2 focus:ring-[#2E7DD1]/30"
-                    />
-                    <p className="mt-1.5 text-xs text-white/30">Provided by your school administrator</p>
-                  </div>
+                {error && <div style={S.error}>⚠ {error}</div>}
 
-                  {/* Error */}
-                  {error && (
-                    <div className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 border border-red-500/20">
-                      <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      {error}
-                    </div>
-                  )}
-
-                  {/* Submit */}
-                  <button
-                    type="submit"
-                    disabled={loading || phone.length < 10}
-                    className="relative w-full overflow-hidden rounded-xl bg-[#2E7DD1] py-3.5 text-sm font-semibold text-white transition hover:bg-[#1B3A6B] disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                        </svg>
-                        Sending OTP…
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center gap-2">
-                        Send OTP via WhatsApp
-                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                        </svg>
-                      </span>
-                    )}
-                  </button>
-                </form>
-              </>
-            ) : (
-              <>
-                {/* Back */}
-                <button
-                  onClick={() => { setStep("phone"); setError(""); setOtp(["","","","","",""]); }}
-                  className="mb-6 flex items-center gap-1.5 text-sm text-white/50 transition hover:text-white"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                  Change number
+                <button type="submit" disabled={isDisabled} style={{ ...S.btn, ...(isDisabled ? S.btnDisabled : S.btnPrimary) }}>
+                  {loading ? "Sending OTP…" : "Send OTP via WhatsApp →"}
                 </button>
+              </form>
 
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-white">Enter OTP</h2>
-                  <p className="mt-1 text-sm text-white/50">
-                    Sent to{" "}
-                    <span className="font-semibold text-white">+91 {phone.replace(/(\d{5})(\d{5})/, "$1 $2")}</span>
-                  </p>
-                </div>
+              <p style={S.footer}>© {new Date().getFullYear()} SchoolOS · Secure Admin Portal</p>
+            </>
+          ) : (
+            <>
+              <button style={S.backBtn} onClick={() => { setStep("phone"); setError(""); setOtp(["","","","","",""]); }}>
+                ← Change number
+              </button>
 
-                {/* OTP boxes */}
-                <div className="mb-6 flex justify-between gap-2">
-                  {otp.map((digit, i) => (
-                    <input
-                      key={i}
-                      ref={(el) => { otpRefs.current[i] = el; }}
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={1}
-                      value={digit}
-                      onChange={(e) => handleOtpChange(i, e.target.value)}
-                      onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                      className={`h-14 w-14 rounded-2xl border-2 bg-white/5 text-center text-xl font-bold text-white outline-none transition ${
-                        digit
-                          ? "border-[#2E7DD1] bg-[#2E7DD1]/10"
-                          : "border-white/10 focus:border-[#2E7DD1] focus:bg-[#2E7DD1]/5"
-                      }`}
-                    />
-                  ))}
-                </div>
+              <p style={S.heading}>Enter OTP</p>
+              <p style={S.subheading}>
+                Sent via WhatsApp to <strong style={{ color: "#1A1A2E" }}>+91 {phone}</strong>
+              </p>
 
-                {/* Error */}
-                {error && (
-                  <div className="mb-4 flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 border border-red-500/20">
-                    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    {error}
-                  </div>
-                )}
+              <div style={S.otpRow}>
+                {otp.map((digit, i) => (
+                  <input
+                    key={i}
+                    ref={(el) => { otpRefs.current[i] = el; }}
+                    style={digit ? S.otpBoxFilled : S.otpBoxEmpty}
+                    type="text" inputMode="numeric" maxLength={1} value={digit}
+                    onChange={(e) => otpChange(i, e.target.value)}
+                    onKeyDown={(e) => otpKey(i, e)}
+                  />
+                ))}
+              </div>
 
-                {/* Verify button */}
-                <button
-                  onClick={() => void handleVerifyOtp()}
-                  disabled={loading || otp.some((d) => !d)}
-                  className="mb-5 w-full rounded-xl bg-[#2E7DD1] py-3.5 text-sm font-semibold text-white transition hover:bg-[#1B3A6B] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Verifying…
-                    </span>
-                  ) : "Verify & Sign In"}
+              {error && <div style={S.error}>⚠ {error}</div>}
+
+              <button
+                disabled={isDisabled}
+                style={{ ...S.btn, ...(isDisabled ? S.btnDisabled : S.btnPrimary), marginTop: 16 }}
+                onClick={() => void verifyOtp()}
+              >
+                {loading ? "Verifying…" : "Verify & Sign In"}
+              </button>
+
+              <p style={S.resend}>
+                Didn't receive it?{" "}
+                <button style={countdown > 0 || loading ? S.resendBtnDisabled : S.resendBtnActive} onClick={() => void resend()} disabled={countdown > 0 || loading}>
+                  {countdown > 0 ? `Resend in ${countdown}s` : "Resend OTP"}
                 </button>
+              </p>
 
-                {/* Resend */}
-                <div className="text-center text-sm text-white/40">
-                  Didn't receive it?{" "}
-                  <button
-                    onClick={() => void handleResend()}
-                    disabled={countdown > 0 || loading}
-                    className="font-semibold text-[#2E7DD1] transition hover:text-white disabled:text-white/20 disabled:cursor-not-allowed"
-                  >
-                    {countdown > 0 ? `Resend in ${countdown}s` : "Resend OTP"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <p className="mt-6 text-center text-xs text-white/20">
-            © {new Date().getFullYear()} SchoolOS · Secure Admin Portal
-          </p>
+              <p style={S.footer}>© {new Date().getFullYear()} SchoolOS · Secure Admin Portal</p>
+            </>
+          )}
         </div>
       </div>
     </div>
