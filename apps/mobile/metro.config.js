@@ -2,7 +2,6 @@ const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
 const { exclusionList } = require("metro-config");
 const path = require("path");
-const { pathToFileURL } = require("url");
 
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, "../..");
@@ -27,12 +26,7 @@ config.resolver.blockList = exclusionList([
   /.*\.git\/.*/,
 ]);
 
-// 👇 IMPORTANT FIX (convert path → file URL)
-const globalCssPath = pathToFileURL(
-  path.resolve(projectRoot, "global.css")
-).toString();
-
 module.exports = withNativeWind(config, {
-  input: globalCssPath,
+  input: "./global.css", // ✅ KEEP SIMPLE (this is correct)
   inlineRem: 16,
 });
