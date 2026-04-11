@@ -11,8 +11,7 @@
     "staging": {
       "distribution": "internal",
       "env": { "APP_ENV": "staging" },
-      "android": { "buildType": "apk" },
-      "channel": "staging"
+      "android": { "buildType": "apk" }
     },
     "production": {
       "distribution": "store",
