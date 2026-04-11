@@ -44,8 +44,7 @@ export function LoginPage(): React.JSX.Element {
     setLoading(true);
     try {
       await apiClient.post("/api/v1/auth/otp/send", {
-        phone: formatPhone(phone),
-        schoolCode: schoolCode.trim().toUpperCase(),
+        mobile: formatPhone(phone),
       });
       setStep("otp");
       setCountdown(30);
@@ -84,7 +83,7 @@ export function LoginPage(): React.JSX.Element {
         school: { id: string; name: string };
         accessToken: string;
         refreshToken: string;
-      }>("/api/v1/auth/otp/verify", { phone: formatPhone(phone), otp: otpCode });
+      }>("/api/v1/auth/otp/verify", { mobile: formatPhone(phone), otp: otpCode });
       const user: AdminUser = { ...data.user, schoolName: data.school?.name ?? "" };
       await setAuth(user, data.accessToken, data.refreshToken);
       navigate("/dashboard", { replace: true });
@@ -104,8 +103,7 @@ export function LoginPage(): React.JSX.Element {
     setLoading(true);
     try {
       await apiClient.post("/api/v1/auth/otp/send", {
-        phone: formatPhone(phone),
-        schoolCode: schoolCode.trim().toUpperCase(),
+        mobile: formatPhone(phone),
       });
       setCountdown(30);
       setOtp(["", "", "", "", "", ""]);
