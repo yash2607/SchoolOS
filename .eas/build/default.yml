@@ -1,0 +1,21 @@
+build:
+  name: SchoolOS Android Build
+  steps:
+    - eas/checkout
+
+    - name: Enable corepack and install pnpm
+      command: |
+        corepack enable
+        corepack prepare pnpm@10 --activate
+
+    - name: Install monorepo dependencies
+      command: |
+        pnpm install --no-frozen-lockfile
+
+    - name: Expo prebuild
+      working_directory: apps/mobile
+      command: |
+        node ../../node_modules/.bin/expo prebuild --platform android --non-interactive
+
+    - eas/run_gradle:
+        working_directory: apps/mobile/android

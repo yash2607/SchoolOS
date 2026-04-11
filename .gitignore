@@ -8,6 +8,10 @@ build
 .next
 out
 .expo
+
+# EAS custom workflow (must not be gitignored by build rule above)
+!.eas/
+!.eas/**
 *.tsbuildinfo
 
 # Environment
