@@ -1,0 +1,14 @@
+**/node_modules
+**/.expo
+**/dist
+**/.turbo
+**/coverage
+**/*.log
+**/.env
+**/.env.local
+**/android
+**/ios
+apps/mobile
+apps/admin
+.git
+.github

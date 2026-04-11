@@ -1,33 +1,21 @@
-# ── Stage 1: install deps ─────────────────────────────────────────────────────
-FROM node:22-alpine AS deps
+# ─── Stage 1: builder ─────────────────────────────────────────────────────────
+FROM node:22-alpine AS builder
 RUN corepack enable
 WORKDIR /app
 
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
-COPY tsconfig.base.json ./
-COPY packages/ packages/
-COPY backend/services/auth/package.json backend/services/auth/
+# Copy entire repo so pnpm can resolve the full workspace graph
+COPY . .
 
-RUN pnpm install --frozen-lockfile --filter @schoolos/auth-service...
+RUN pnpm install --frozen-lockfile
 
-# ── Stage 2: build workspace packages ─────────────────────────────────────────
-FROM deps AS pkg-builder
-WORKDIR /app
-
+# Build shared packages before auth-service (they produce dist/ that TS needs)
 RUN pnpm --filter @schoolos/types   build && \
     pnpm --filter @schoolos/config  build && \
     pnpm --filter @schoolos/utils   build
 
-# ── Stage 3: build auth service ───────────────────────────────────────────────
-FROM pkg-builder AS builder
-WORKDIR /app
-
-COPY backend/libs/     backend/libs/
-COPY backend/services/auth/ backend/services/auth/
-
 RUN cd backend/services/auth && pnpm build
 
-# ── Stage 4: runner ───────────────────────────────────────────────────────────
+# ─── Stage 2: runner ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
