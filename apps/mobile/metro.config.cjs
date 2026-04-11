@@ -7,13 +7,17 @@ const workspaceRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
-// getDefaultConfig sets unstable_serverRoot to the pnpm workspace root
-// (monorepo root), but the Gradle bundle command passes the entry file as a
-// path relative to apps/mobile. Metro resolves it from serverRoot, so if
-// serverRoot is the monorepo root, `./../../node_modules/expo-router/entry.js`
-// goes two levels ABOVE the monorepo root and fails. Force serverRoot back to
-// projectRoot so Metro resolves from apps/mobile correctly.
-config.unstable_serverRoot = projectRoot;
+// getDefaultConfig sets config.server.unstable_serverRoot to the pnpm workspace
+// root (monorepo root) via getMetroServerRoot(). Metro resolves the entry file
+// relative to serverRoot. The Gradle bundle command passes the entry file as
+// ./../../node_modules/expo-router/entry.js (relative to apps/mobile), so
+// resolving from the monorepo root goes two levels above it and fails.
+// Override serverRoot to apps/mobile so the entry file resolves correctly to
+// SchoolOS/node_modules/expo-router/entry.js.
+config.server = {
+  ...config.server,
+  unstable_serverRoot: projectRoot,
+};
 
 config.watchFolders = [workspaceRoot];
 
