@@ -1,5 +1,7 @@
 node_modules
 .expo
+android
+ios
 dist
 *.tsbuildinfo
 nativewind-env.d.ts
