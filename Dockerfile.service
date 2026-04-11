@@ -8,32 +8,43 @@ WORKDIR /app
 
 ARG SERVICE=auth
 
+# Workspace manifests
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY tsconfig.base.json ./
 
-COPY packages/types/package.json   packages/types/
-COPY packages/config/package.json  packages/config/
-COPY packages/utils/package.json   packages/utils/
-COPY packages/api/package.json     packages/api/
-COPY packages/ui/package.json      packages/ui/
+# Package sources (needed for pnpm workspace linking)
+COPY packages/ packages/
 
+# Service manifest only (for dep install)
 COPY backend/services/${SERVICE}/package.json backend/services/${SERVICE}/
 
+# Install deps for the service + all workspace packages it depends on
 RUN pnpm install --frozen-lockfile --filter @schoolos/${SERVICE}-service...
 
-# ─── Stage 3: build ───────────────────────────────────────────────────────────
-FROM deps AS builder
+# ─── Stage 3: build workspace packages ────────────────────────────────────────
+FROM deps AS pkg-builder
+WORKDIR /app
+
+# Build shared packages in dependency order so dist/ exists before service build
+RUN pnpm --filter @schoolos/types   build && \
+    pnpm --filter @schoolos/config  build && \
+    pnpm --filter @schoolos/utils   build
+
+# ─── Stage 4: build service ───────────────────────────────────────────────────
+FROM pkg-builder AS builder
 WORKDIR /app
 
 ARG SERVICE=auth
 
-COPY packages/      packages/
-COPY backend/libs/  backend/libs/
+# Copy shared libs (raw TS compiled inline with each service)
+COPY backend/libs/ backend/libs/
+
+# Copy service source
 COPY backend/services/${SERVICE}/ backend/services/${SERVICE}/
 
 RUN cd backend/services/${SERVICE} && pnpm build
 
-# ─── Stage 4: runner ──────────────────────────────────────────────────────────
+# ─── Stage 5: runner ──────────────────────────────────────────────────────────
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
