@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "turbo run build",
+    "build:packages": "pnpm -r --filter \"./packages/*\" run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "test": "turbo run test",

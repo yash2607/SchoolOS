@@ -109,7 +109,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build shared packages
-        run: pnpm turbo build --filter="./packages/..."
+        run: pnpm run build:packages
 
       - name: Setup Expo
         uses: expo/expo-github-action@v8

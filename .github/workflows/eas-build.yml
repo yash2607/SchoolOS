@@ -33,7 +33,7 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build shared packages
-        run: pnpm turbo build --filter="./packages/..."
+        run: pnpm run build:packages
 
       - name: Install EAS CLI
         run: npm install -g eas-cli
