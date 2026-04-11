@@ -102,14 +102,21 @@ if (sdkDir && fs.existsSync(androidDir)) {
 }
 
 console.log(`Running Gradle ${gradleTask}...`);
+const gradleEnv = {
+  ...process.env,
+  // Tell Expo CLI the correct project root so Metro doesn't use monorepo root
+  EXPO_PROJECT_ROOT: projectRoot,
+};
 if (process.platform === "win32") {
   const gradlewBat = path.join(androidDir, "gradlew.bat");
   run("cmd.exe", ["/c", gradlewBat, gradleTask], {
     cwd: androidDir,
+    env: gradleEnv,
   });
 } else {
   run("./gradlew", [gradleTask], {
     cwd: androidDir,
+    env: gradleEnv,
   });
 }
 
