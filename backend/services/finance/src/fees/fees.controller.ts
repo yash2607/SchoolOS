@@ -106,6 +106,22 @@ export class FeesController {
     return this.feesService.listOverdueInvoices(user.schoolId, gradeId);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('fees/student/:studentId')
+  @ApiOperation({ summary: 'Get student fee account (parent safe)' })
+  getStudentFeeAccount(@CurrentUser() user: JwtPayload, @Param('studentId') studentId: string) {
+    return this.feesService.getStudentFeeAccount(user.schoolId, studentId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Get('fees/student/:studentId/summary')
+  @ApiOperation({ summary: 'Get student fee summary (parent safe)' })
+  getStudentFeeSummary(@CurrentUser() user: JwtPayload, @Param('studentId') studentId: string) {
+    return this.feesService.getStudentFeeSummary(user.schoolId, studentId);
+  }
+
   // ─── Payments ─────────────────────────────────────────────────────────────
 
   @ApiBearerAuth()

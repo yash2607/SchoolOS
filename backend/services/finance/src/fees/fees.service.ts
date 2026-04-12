@@ -150,6 +150,63 @@ export class FeesService {
     });
   }
 
+  async getStudentFeeAccount(schoolId: string, studentId: string) {
+    const invoices = await this.invoiceRepo
+      .createQueryBuilder('i')
+      .leftJoinAndMapOne('i.feeItem', FeeItem, 'f', 'f.id = i.feeItemId')
+      .where('i.schoolId = :schoolId', { schoolId })
+      .andWhere('i.studentId = :studentId', { studentId })
+      .orderBy('i.dueDate', 'DESC')
+      .getMany();
+
+    const totalAmount = invoices.reduce((sum, inv) => sum + Number(inv.dueAmount), 0);
+    const paidAmount = invoices.reduce((sum, inv) => sum + Number(inv.paidAmount), 0);
+    
+    const now = new Date().toISOString().split('T')[0] ?? '';
+
+    const installments = invoices.map((inv: any) => {
+      let status = inv.status;
+      if (['unpaid', 'partial'].includes(status) && inv.dueDate < now) {
+        status = 'overdue';
+      }
+      return {
+        id: inv.id,
+        feeAccountId: `${studentId}-account`,
+        feeHeadId: inv.feeItemId,
+        feeHeadName: inv.feeItem?.name ?? 'Unknown Fee',
+        dueDate: inv.dueDate,
+        amount: Number(inv.dueAmount),
+        lateFeeApplied: 0,
+        status,
+        paidAt: status === 'paid' ? inv.updatedAt.toISOString() : null,
+        paymentReference: null,
+      };
+    });
+
+    return {
+      id: `${studentId}-account`,
+      studentId,
+      feeStructureId: invoices[0]?.academicYear ?? 'current',
+      totalAmount,
+      paidAmount,
+      outstandingAmount: totalAmount - paidAmount,
+      installments,
+    };
+  }
+
+  async getStudentFeeSummary(schoolId: string, studentId: string) {
+    const account = await this.getStudentFeeAccount(schoolId, studentId);
+    const pendingInstallments = account.installments.filter((i: any) => ['unpaid', 'partial', 'overdue'].includes(i.status));
+    const nextInstallment = pendingInstallments.sort((a: any, b: any) => a.dueDate.localeCompare(b.dueDate))[0] ?? null;
+
+    return {
+      totalDue: account.totalAmount,
+      totalPaid: account.paidAmount,
+      outstanding: account.outstandingAmount,
+      nextInstallment,
+    };
+  }
+
   async listOverdueInvoices(schoolId: string, gradeId?: string): Promise<StudentInvoice[]> {
     const now = new Date().toISOString().split('T')[0] ?? '';
 
