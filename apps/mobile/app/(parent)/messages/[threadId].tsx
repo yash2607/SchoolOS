@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -9,14 +9,22 @@ import {
   View,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, EmptyState, SkeletonLoader } from "@schoolos/ui";
-import { useMessageThread, useSendMessage } from "@schoolos/api";
+import {
+  apiClient,
+  createWebSocketClient,
+  useMessageThread,
+  useSendMessage,
+} from "@schoolos/api";
 import { formatTime } from "@schoolos/utils";
 import { useAuthStore } from "../../../store/authStore";
+import { tokenStorage } from "../../../lib/tokenStorage";
 
 export default function ParentMessageThreadScreen(): React.JSX.Element {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { user } = useAuthStore();
   const [draft, setDraft] = useState("");
@@ -25,6 +33,39 @@ export default function ParentMessageThreadScreen(): React.JSX.Element {
   const sendMessage = useSendMessage(threadId);
 
   const messages = data?.pages.slice().reverse().flatMap((page) => page.messages) ?? [];
+
+  useEffect(() => {
+    let disconnect: (() => void) | undefined;
+
+    async function connect() {
+      if (!threadId) return;
+      const token = await tokenStorage.getAccessToken();
+      const baseUrl = apiClient.defaults.baseURL;
+      if (!token || !baseUrl) return;
+
+      const client = createWebSocketClient(baseUrl, token, {
+        onMessage: (message) => {
+          if (message.threadId === threadId) {
+            void queryClient.invalidateQueries({
+              queryKey: ["messages", "thread", threadId],
+            });
+            void queryClient.invalidateQueries({
+              queryKey: ["messages", "threads"],
+            });
+          }
+        },
+      });
+
+      client.joinThread(threadId);
+      disconnect = () => {
+        client.leaveThread(threadId);
+        client.disconnect();
+      };
+    }
+
+    void connect();
+    return () => disconnect?.();
+  }, [queryClient, threadId]);
 
   const submit = () => {
     const content = draft.trim();

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { MessagesService } from './messages.service';
+import { MessagesGateway } from './messages.gateway';
 import { JwtAuthGuard } from '../common/jwt.guard';
 import { CurrentUser } from '../common/current-user.decorator';
 import type { JwtPayload } from '../common/jwt.guard';
@@ -20,7 +21,10 @@ import { CreateThreadDto, SendMessageDto, PaginationDto } from './dto/message.dt
 @UseGuards(JwtAuthGuard)
 @Controller()
 export class MessagesController {
-  constructor(private readonly messagesService: MessagesService) {}
+  constructor(
+    private readonly messagesService: MessagesService,
+    private readonly messagesGateway: MessagesGateway,
+  ) {}
 
   @Get('messages/threads')
   @ApiOperation({ summary: 'List my message threads with unread count' })
@@ -54,8 +58,10 @@ export class MessagesController {
 
   @Post('messages')
   @ApiOperation({ summary: 'Send a message' })
-  sendMessage(@CurrentUser() user: JwtPayload, @Body() dto: SendMessageDto) {
-    return this.messagesService.sendMessage(user.schoolId, user.sub, dto);
+  async sendMessage(@CurrentUser() user: JwtPayload, @Body() dto: SendMessageDto) {
+    const message = await this.messagesService.sendMessage(user.schoolId, user.sub, dto);
+    this.messagesGateway.emitMessage(message);
+    return message;
   }
 
   @Patch('messages/:id/read')

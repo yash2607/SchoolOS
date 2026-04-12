@@ -1,9 +1,8 @@
-// WebSocket client stub — real implementation uses socket.io-client
-// Configured per-app with proper token management
-// TODO: [PHASE-6] Implement full socket.io-client integration
+import { io, type Socket } from "socket.io-client";
+import type { Message } from "@schoolos/types";
 
 export interface WebSocketOptions {
-  onMessage?: (data: unknown) => void;
+  onMessage?: (data: Message) => void;
   onConnect?: () => void;
   onDisconnect?: () => void;
   onError?: (error: Error) => void;
@@ -12,17 +11,29 @@ export interface WebSocketOptions {
 export interface WebSocketClient {
   disconnect: () => void;
   emit: (event: string, data?: unknown) => void;
+  joinThread: (threadId: string) => void;
+  leaveThread: (threadId: string) => void;
 }
 
-// Stub — replaced per-app with real socket.io-client instance
 export function createWebSocketClient(
   _url: string,
   _token: string,
   _options?: WebSocketOptions
 ): WebSocketClient {
-  console.warn("[WebSocket] Stub implementation. Configure in app.");
+  const socket: Socket = io(`${_url}/messages`, {
+    auth: { token: _token },
+    transports: ["websocket"],
+  });
+
+  socket.on("connect", () => _options?.onConnect?.());
+  socket.on("disconnect", () => _options?.onDisconnect?.());
+  socket.on("connect_error", (error) => _options?.onError?.(error));
+  socket.on("message:new", (message: Message) => _options?.onMessage?.(message));
+
   return {
-    disconnect: () => {},
-    emit: () => {},
+    disconnect: () => socket.disconnect(),
+    emit: (event, data) => socket.emit(event, data),
+    joinThread: (threadId) => socket.emit("thread:join", { threadId }),
+    leaveThread: (threadId) => socket.emit("thread:leave", { threadId }),
   };
 }

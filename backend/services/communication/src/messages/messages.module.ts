@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
+import { MessagesGateway } from './messages.gateway';
 import { MessageThread } from '../entities/message-thread.entity';
 import { Message } from '../entities/message.entity';
 
@@ -12,7 +13,7 @@ import { Message } from '../entities/message.entity';
     JwtModule.register({}),
   ],
   controllers: [MessagesController],
-  providers: [MessagesService],
+  providers: [MessagesService, MessagesGateway],
   exports: [MessagesService],
 })
 export class MessagesModule {}

@@ -51,9 +51,7 @@ export class MessagesService {
     page: number,
     limit: number,
   ): Promise<{ messages: Message[]; total: number; page: number; limit: number }> {
-    const thread = await this.threadRepo.findOne({ where: { id: threadId, schoolId } });
-    if (!thread) throw new NotFoundException('Thread not found');
-    this.assertThreadParticipant(thread, userId);
+    await this.verifyThreadAccess(schoolId, threadId, userId);
 
     const [messages, total] = await this.messageRepo.findAndCount({
       where: { threadId },
@@ -93,9 +91,7 @@ export class MessagesService {
   }
 
   async sendMessage(schoolId: string, senderUserId: string, dto: SendMessageDto): Promise<Message> {
-    const thread = await this.threadRepo.findOne({ where: { id: dto.threadId, schoolId } });
-    if (!thread) throw new NotFoundException('Thread not found');
-    this.assertThreadParticipant(thread, senderUserId);
+    const thread = await this.verifyThreadAccess(schoolId, dto.threadId, senderUserId);
 
     const message = this.messageRepo.create({
       threadId: dto.threadId,
@@ -116,24 +112,33 @@ export class MessagesService {
     return saved;
   }
 
-  private assertThreadParticipant(thread: MessageThread, userId: string): void {
-    if (thread.teacherUserId !== userId && thread.parentUserId !== userId) {
-      throw new ForbiddenException('You do not have access to this thread');
-    }
-  }
-
   async markRead(schoolId: string, messageId: string, userId: string): Promise<Message> {
     const message = await this.messageRepo.findOne({ where: { id: messageId } });
     if (!message) throw new NotFoundException('Message not found');
 
-    const thread = await this.threadRepo.findOne({ where: { id: message.threadId, schoolId } });
-    if (!thread) throw new NotFoundException('Thread not found');
-    this.assertThreadParticipant(thread, userId);
+    await this.verifyThreadAccess(schoolId, message.threadId, userId);
 
     if (!message.readAt) {
       message.readAt = new Date();
       await this.messageRepo.save(message);
     }
     return message;
+  }
+
+  async verifyThreadAccess(
+    schoolId: string,
+    threadId: string,
+    userId: string,
+  ): Promise<MessageThread> {
+    const thread = await this.threadRepo.findOne({ where: { id: threadId, schoolId } });
+    if (!thread) throw new NotFoundException('Thread not found');
+    this.assertThreadParticipant(thread, userId);
+    return thread;
+  }
+
+  private assertThreadParticipant(thread: MessageThread, userId: string): void {
+    if (thread.teacherUserId !== userId && thread.parentUserId !== userId) {
+      throw new ForbiddenException('You do not have access to this thread');
+    }
   }
 }
