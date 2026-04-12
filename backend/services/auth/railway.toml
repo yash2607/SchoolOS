@@ -3,7 +3,6 @@ dockerfilePath = "../../Dockerfile.service"
 buildArgs = { SERVICE = "auth" }
 
 [deploy]
-startCommand = "node dist/main"
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 

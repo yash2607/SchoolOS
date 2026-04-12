@@ -13,7 +13,6 @@ dockerfile  = "Dockerfile.service"
 buildArgs   = { SERVICE = "auth" }
 
 [services.deploy]
-startCommand          = "node dist/main"
 healthcheckPath       = "/api/v1/health"
 healthcheckTimeout    = 30
 restartPolicyType     = "on_failure"

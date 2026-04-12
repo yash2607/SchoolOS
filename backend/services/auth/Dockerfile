@@ -16,4 +16,4 @@ RUN cd backend/services/auth && pnpm build
 WORKDIR /app/backend/services/auth
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["node", "dist/main"]
+CMD ["node", "dist/services/auth/src/main.js"]

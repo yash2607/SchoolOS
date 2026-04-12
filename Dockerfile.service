@@ -5,6 +5,7 @@ RUN corepack enable
 WORKDIR /app
 
 ARG SERVICE=auth
+ENV SERVICE=${SERVICE}
 
 # Copy entire repo (pnpm needs all package.json files to resolve workspace)
 COPY . .
