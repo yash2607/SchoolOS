@@ -61,10 +61,38 @@ if (!process.env.JAVA_HOME && process.platform === "win32") {
 const androidDir = path.join(projectRoot, "android");
 const localPropsPath = path.join(androidDir, "local.properties");
 const sdkDir = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
-if (sdkDir && fs.existsSync(androidDir)) {
-  const escaped = sdkDir.replace(/\\/g, "\\\\");
-  fs.writeFileSync(localPropsPath, `sdk.dir=${escaped}\n`);
+
+// Find the best CMake version in the SDK (3.25+ has longPathAware manifest)
+function findBestCmakePath(sdkRoot) {
+  if (!sdkRoot) return null;
+  const cmakeRoot = path.join(sdkRoot, "cmake");
+  if (!fs.existsSync(cmakeRoot)) return null;
+  const versions = fs.readdirSync(cmakeRoot)
+    .filter(v => fs.statSync(path.join(cmakeRoot, v)).isDirectory())
+    .sort()
+    .reverse(); // newest first
+  for (const v of versions) {
+    const parts = v.split(".").map(Number);
+    if (parts[0] > 3 || (parts[0] === 3 && parts[1] >= 25)) {
+      return path.join(cmakeRoot, v);
+    }
+  }
+  return null;
 }
+
+function writeLocalProperties() {
+  if (!fs.existsSync(androidDir)) return;
+  const lines = [];
+  if (sdkDir) lines.push(`sdk.dir=${sdkDir.replace(/\\/g, "\\\\")}`);
+  const cmakePath = findBestCmakePath(sdkDir);
+  if (cmakePath) {
+    lines.push(`cmake.dir=${cmakePath.replace(/\\/g, "\\\\")}`);
+    console.log(`Using CMake: ${cmakePath}`);
+  }
+  fs.writeFileSync(localPropsPath, lines.join("\n") + "\n");
+}
+
+writeLocalProperties();
 
 function run(command, commandArgs, options = {}) {
   const result = spawnSync(command, commandArgs, {
@@ -96,9 +124,20 @@ run(process.execPath, [
 ]);
 
 // Write local.properties again after prebuild (in case it was regenerated)
-if (sdkDir && fs.existsSync(androidDir)) {
-  const escaped = sdkDir.replace(/\\/g, "\\\\");
-  fs.writeFileSync(localPropsPath, `sdk.dir=${escaped}\n`);
+writeLocalProperties();
+
+// expo-updates' convertEntryPointToRelative strips the path to just
+// `node_modules/expo-router/entry.js`, then Metro looks for it at
+// apps/mobile/node_modules/expo-router — which doesn't exist with shamefully-hoist.
+// Fix: create a junction so the path resolves correctly. Node.js junctions on
+// Windows don't require admin privileges.
+const mobileNodeModulesDir = path.join(projectRoot, "node_modules");
+const expoRouterLink = path.join(mobileNodeModulesDir, "expo-router");
+const expoRouterSrc = path.join(workspaceRoot, "node_modules", "expo-router");
+if (fs.existsSync(expoRouterSrc) && !fs.existsSync(expoRouterLink)) {
+  fs.mkdirSync(mobileNodeModulesDir, { recursive: true });
+  fs.symlinkSync(expoRouterSrc, expoRouterLink, "junction");
+  console.log(`Created junction: ${expoRouterLink}`);
 }
 
 console.log(`Running Gradle ${gradleTask}...`);
