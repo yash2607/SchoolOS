@@ -38,6 +38,7 @@ export class MessagesController {
     @Query() pagination: PaginationDto,
   ) {
     return this.messagesService.getThreadMessages(
+      user.schoolId,
       threadId,
       user.sub,
       pagination.page ?? 1,
@@ -48,18 +49,18 @@ export class MessagesController {
   @Post('messages/threads')
   @ApiOperation({ summary: 'Create thread or get existing' })
   createOrGetThread(@CurrentUser() user: JwtPayload, @Body() dto: CreateThreadDto) {
-    return this.messagesService.createOrGetThread(user.schoolId, dto);
+    return this.messagesService.createOrGetThread(user.schoolId, user.sub, dto);
   }
 
   @Post('messages')
   @ApiOperation({ summary: 'Send a message' })
   sendMessage(@CurrentUser() user: JwtPayload, @Body() dto: SendMessageDto) {
-    return this.messagesService.sendMessage(user.sub, dto);
+    return this.messagesService.sendMessage(user.schoolId, user.sub, dto);
   }
 
   @Patch('messages/:id/read')
   @ApiOperation({ summary: 'Mark message as read' })
   markRead(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
-    return this.messagesService.markRead(id, user.sub);
+    return this.messagesService.markRead(user.schoolId, id, user.sub);
   }
 }

@@ -1,4 +1,9 @@
-export type FeeInstallmentStatus = "unpaid" | "paid" | "partial" | "waived";
+export type FeeInstallmentStatus =
+  | "unpaid"
+  | "paid"
+  | "partial"
+  | "waived"
+  | "overdue";
 export type PaymentGateway = "razorpay" | "stripe";
 export type PaymentStatus =
   | "pending"

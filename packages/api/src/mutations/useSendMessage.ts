@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../client.js";
 import type { Message, SendMessageInput } from "@schoolos/types";
 
-export function useSendMessage(conversationId?: string) {
+export function useSendMessage(threadId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (payload: SendMessageInput) => {
@@ -17,21 +17,21 @@ export function useSendMessage(conversationId?: string) {
     },
     onMutate: async (newMessage) => {
       // Optimistic update: immediately add message to thread
-      if (conversationId) {
+      if (threadId) {
         await queryClient.cancelQueries({
-          queryKey: ["messages", "thread", conversationId],
+          queryKey: ["messages", "thread", threadId],
         });
         const optimistic = {
           id: `optimistic-${Date.now()}`,
-          conversationId,
-          senderId: "current-user",
-          receiverId: "",
-          body: newMessage.body,
-          attachmentUrl: newMessage.attachmentUrl ?? null,
-          attachmentName: newMessage.attachmentName ?? null,
+          threadId,
+          senderUserId: "current-user",
+          content: newMessage.content,
+          attachmentKeys: newMessage.attachmentKeys ?? [],
           sentAt: new Date().toISOString(),
           deliveredAt: null,
           readAt: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         };
         return { optimistic };
       }

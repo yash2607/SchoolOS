@@ -1,37 +1,37 @@
-export interface Conversation {
+export interface MessageThread {
   id: string;
-  parentId: string;
-  teacherId: string;
-  teacherName: string;
-  teacherPhotoUrl: string | null;
+  schoolId: string;
+  teacherUserId: string;
+  parentUserId: string;
   studentId: string;
-  studentName: string;
-  subjectId: string | null;
-  subjectName: string | null;
-  lastMessage: string | null;
   lastMessageAt: string | null;
-  unreadCount: number;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface MessageThreadSummary extends MessageThread {
+  lastMessage: Message | null;
+  unreadCount: number;
 }
 
 export interface Message {
   id: string;
-  conversationId: string;
-  senderId: string;
-  receiverId: string;
-  body: string;
-  attachmentUrl: string | null;
-  attachmentName: string | null;
+  threadId: string;
+  senderUserId: string;
+  content: string;
+  attachmentKeys: string[];
   sentAt: string;
   deliveredAt: string | null;
   readAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface SendMessagePayload {
-  conversationId?: string;
-  teacherId?: string;
-  studentId?: string;
-  body: string;
-  attachmentUrl?: string;
-  attachmentName?: string;
+export interface ThreadMessagesPage {
+  messages: Message[];
+  total: number;
+  page: number;
+  limit: number;
 }
+
+export type Conversation = MessageThreadSummary;

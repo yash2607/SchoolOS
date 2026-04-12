@@ -5,6 +5,7 @@ export const FeeInstallmentStatusSchema = z.enum([
   "paid",
   "partial",
   "waived",
+  "overdue",
 ]);
 
 export const PaymentGatewaySchema = z.enum(["razorpay", "stripe"]);

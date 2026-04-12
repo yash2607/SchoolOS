@@ -159,7 +159,7 @@ export function Layout({ children, title }: { children: React.ReactNode; title?:
           .mobile-menu-btn { display: flex !important; }
         }
         @media (min-width: 769px) {
-          .sidebar-panel { transform: translateX(0) !important; position: relative !important; }
+          .sidebar-panel { display: none !important; }
         }
       `}</style>
     </div>

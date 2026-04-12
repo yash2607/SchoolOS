@@ -1,33 +1,34 @@
 import { useQuery, useInfiniteQuery } from "@tanstack/react-query";
 import { apiClient } from "../client.js";
-import type { Conversation, Message } from "@schoolos/types";
-import type { PaginatedResponse } from "@schoolos/types";
+import type { MessageThreadSummary, ThreadMessagesPage } from "@schoolos/types";
 
 export function useConversations() {
   return useQuery({
-    queryKey: ["messages", "conversations"],
+    queryKey: ["messages", "threads"],
     queryFn: async () => {
-      const { data } = await apiClient.get<Conversation[]>(
-        "/api/v1/messages/conversations"
+      const { data } = await apiClient.get<MessageThreadSummary[]>(
+        "/api/v1/messages/threads"
       );
       return data;
     },
   });
 }
 
-export function useMessageThread(conversationId: string | null) {
+export function useMessageThread(threadId: string | null) {
   return useInfiniteQuery({
-    queryKey: ["messages", "thread", conversationId],
+    queryKey: ["messages", "thread", threadId],
     queryFn: async ({ pageParam }) => {
-      const { data } = await apiClient.get<PaginatedResponse<Message>>(
-        `/api/v1/messages/conversations/${conversationId}`,
-        { params: { limit: 50, cursor: pageParam } }
+      const { data } = await apiClient.get<ThreadMessagesPage>(
+        `/api/v1/messages/threads/${threadId}`,
+        { params: { limit: 30, page: pageParam } }
       );
       return data;
     },
-    enabled: !!conversationId,
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) =>
-      lastPage.pagination.hasMore ? lastPage.pagination.nextCursor ?? undefined : undefined,
+    enabled: !!threadId,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage) => {
+      const loaded = lastPage.page * lastPage.limit;
+      return loaded < lastPage.total ? lastPage.page + 1 : undefined;
+    },
   });
 }

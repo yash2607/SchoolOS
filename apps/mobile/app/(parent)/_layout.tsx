@@ -87,6 +87,7 @@ export default function ParentLayout(): React.JSX.Element {
       <Tabs.Screen name="settings/profile" options={{ href: null }} />
       <Tabs.Screen name="settings/notifications" options={{ href: null }} />
       <Tabs.Screen name="fees/pay/[feeId]" options={{ href: null }} />
+      <Tabs.Screen name="messages/[threadId]" options={{ href: null }} />
     </Tabs>
   );
 }

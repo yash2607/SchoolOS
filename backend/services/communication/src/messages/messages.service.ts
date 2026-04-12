@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { MessageThread } from '../entities/message-thread.entity';
@@ -45,13 +45,15 @@ export class MessagesService {
   }
 
   async getThreadMessages(
+    schoolId: string,
     threadId: string,
     userId: string,
     page: number,
     limit: number,
   ): Promise<{ messages: Message[]; total: number; page: number; limit: number }> {
-    const thread = await this.threadRepo.findOne({ where: { id: threadId } });
+    const thread = await this.threadRepo.findOne({ where: { id: threadId, schoolId } });
     if (!thread) throw new NotFoundException('Thread not found');
+    this.assertThreadParticipant(thread, userId);
 
     const [messages, total] = await this.messageRepo.findAndCount({
       where: { threadId },
@@ -63,9 +65,14 @@ export class MessagesService {
     return { messages: messages.reverse(), total, page, limit };
   }
 
-  async createOrGetThread(schoolId: string, dto: CreateThreadDto): Promise<MessageThread> {
+  async createOrGetThread(schoolId: string, userId: string, dto: CreateThreadDto): Promise<MessageThread> {
+    if (dto.teacherUserId !== userId && dto.parentUserId !== userId) {
+      throw new ForbiddenException('You can only create threads you participate in');
+    }
+
     const existing = await this.threadRepo.findOne({
       where: {
+        schoolId,
         teacherUserId: dto.teacherUserId,
         parentUserId: dto.parentUserId,
         studentId: dto.studentId,
@@ -85,9 +92,10 @@ export class MessagesService {
     return this.threadRepo.save(thread);
   }
 
-  async sendMessage(senderUserId: string, dto: SendMessageDto): Promise<Message> {
-    const thread = await this.threadRepo.findOne({ where: { id: dto.threadId } });
+  async sendMessage(schoolId: string, senderUserId: string, dto: SendMessageDto): Promise<Message> {
+    const thread = await this.threadRepo.findOne({ where: { id: dto.threadId, schoolId } });
     if (!thread) throw new NotFoundException('Thread not found');
+    this.assertThreadParticipant(thread, senderUserId);
 
     const message = this.messageRepo.create({
       threadId: dto.threadId,
@@ -108,9 +116,20 @@ export class MessagesService {
     return saved;
   }
 
-  async markRead(messageId: string, userId: string): Promise<Message> {
+  private assertThreadParticipant(thread: MessageThread, userId: string): void {
+    if (thread.teacherUserId !== userId && thread.parentUserId !== userId) {
+      throw new ForbiddenException('You do not have access to this thread');
+    }
+  }
+
+  async markRead(schoolId: string, messageId: string, userId: string): Promise<Message> {
     const message = await this.messageRepo.findOne({ where: { id: messageId } });
     if (!message) throw new NotFoundException('Message not found');
+
+    const thread = await this.threadRepo.findOne({ where: { id: message.threadId, schoolId } });
+    if (!thread) throw new NotFoundException('Thread not found');
+    this.assertThreadParticipant(thread, userId);
+
     if (!message.readAt) {
       message.readAt = new Date();
       await this.messageRepo.save(message);
