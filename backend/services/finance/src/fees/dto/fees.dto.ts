@@ -113,6 +113,25 @@ export class InitiatePaymentDto {
   @ApiProperty({ description: 'Amount in paise' })
   @IsNumber()
   amount: number;
+
+  @ApiPropertyOptional({ description: 'Optional callback URL after payment completion' })
+  @IsString()
+  @IsOptional()
+  callbackUrl?: string;
+}
+
+export class VerifyPaymentDto {
+  @ApiProperty()
+  @IsString()
+  orderId: string;
+
+  @ApiProperty()
+  @IsString()
+  paymentId: string;
+
+  @ApiProperty()
+  @IsString()
+  signature: string;
 }
 
 export class ManualPaymentDto {

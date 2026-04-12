@@ -7,7 +7,7 @@ import axios from "axios";
 export interface AdminUser {
   id: string;
   name: string;
-  phone: string;
+  mobileE164: string | null;
   role: "SUPER_ADMIN" | "SCHOOL_ADMIN" | "ACADEMIC_COORD" | "CLASS_TEACHER" | "SUBJECT_TEACHER";
   schoolId: string;
   schoolName: string;

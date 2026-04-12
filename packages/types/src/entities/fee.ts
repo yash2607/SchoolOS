@@ -66,6 +66,16 @@ export interface Payment {
   createdAt: string;
 }
 
+export interface PaymentOrder {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+  paymentId: string;
+  invoiceId: string;
+  callbackUrl: string | null;
+}
+
 export interface FeeSummary {
   totalDue: number;
   totalPaid: number;

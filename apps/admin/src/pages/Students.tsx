@@ -1,65 +1,48 @@
 import { useState } from "react";
-import { Layout } from "../components/Layout.js";
 import * as Dialog from "@radix-ui/react-dialog";
+import { useStudents } from "@schoolos/api";
+import type { Student } from "@schoolos/types";
+import { Layout } from "../components/Layout.js";
 
-interface Student {
-  id: string;
-  admissionNo: string;
-  name: string;
-  grade: string;
-  section: string;
-  status: "active" | "inactive" | "alumni";
-  dob: string;
-  gender: "Male" | "Female" | "Other";
-}
+type StudentRow = Student & {
+  gradeName?: string | null;
+  sectionName?: string | null;
+};
 
-const MOCK_STUDENTS: Student[] = [
-  { id: "1", admissionNo: "2024001", name: "Aarav Sharma", grade: "10", section: "A", status: "active", dob: "2009-03-15", gender: "Male" },
-  { id: "2", admissionNo: "2024002", name: "Priya Patel", grade: "10", section: "B", status: "active", dob: "2009-07-22", gender: "Female" },
-  { id: "3", admissionNo: "2024003", name: "Rohit Verma", grade: "9", section: "A", status: "active", dob: "2010-01-10", gender: "Male" },
-  { id: "4", admissionNo: "2024004", name: "Ananya Singh", grade: "9", section: "B", status: "active", dob: "2010-05-18", gender: "Female" },
-  { id: "5", admissionNo: "2024005", name: "Karan Mehta", grade: "8", section: "A", status: "inactive", dob: "2011-09-30", gender: "Male" },
-  { id: "6", admissionNo: "2024006", name: "Shreya Gupta", grade: "8", section: "A", status: "active", dob: "2011-11-04", gender: "Female" },
-  { id: "7", admissionNo: "2024007", name: "Dev Joshi", grade: "7", section: "A", status: "active", dob: "2012-02-14", gender: "Male" },
-  { id: "8", admissionNo: "2023001", name: "Meera Nair", grade: "10", section: "A", status: "alumni", dob: "2008-06-20", gender: "Female" },
-  { id: "9", admissionNo: "2024008", name: "Arjun Kumar", grade: "6", section: "B", status: "active", dob: "2013-08-08", gender: "Male" },
-  { id: "10", admissionNo: "2024009", name: "Kavya Reddy", grade: "6", section: "A", status: "active", dob: "2013-12-25", gender: "Female" },
-];
-
-const STATUS_BADGE: Record<Student["status"], string> = {
+const STATUS_BADGE: Record<Student["status"] | "transferred", string> = {
   active: "bg-green-100 text-[#1A7A4A]",
   inactive: "bg-gray-100 text-[#4A4A6A]",
   alumni: "bg-blue-100 text-[#2E7DD1]",
+  transferred: "bg-amber-100 text-[#D97706]",
 };
 
-const BLANK_FORM = { name: "", admissionNo: "", grade: "6", section: "A", dob: "", gender: "Male" as const };
+const BLANK_FORM = {
+  name: "",
+  admissionNo: "",
+  grade: "",
+  section: "",
+  dob: "",
+  gender: "Male" as const,
+};
 
 export function StudentsPage(): React.JSX.Element {
   const [search, setSearch] = useState("");
   const [gradeFilter, setGradeFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ ...BLANK_FORM });
-  const [students, setStudents] = useState(MOCK_STUDENTS);
-
-  const filtered = students.filter((s) => {
-    const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.admissionNo.includes(search);
-    const matchesGrade = gradeFilter === "all" || s.grade === gradeFilter;
-    return matchesSearch && matchesGrade;
-  });
+  const studentsQuery = useStudents(
+    search.trim() ? { search: search.trim() } : {}
+  );
+  const students = (studentsQuery.data ?? []) as StudentRow[];
+  const grades = Array.from(
+    new Set(students.map((student) => student.gradeName).filter(Boolean))
+  ) as string[];
+  const filtered = students.filter((student) =>
+    gradeFilter === "all" ? true : student.gradeName === gradeFilter
+  );
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    const newStudent: Student = {
-      id: Date.now().toString(),
-      admissionNo: form.admissionNo,
-      name: form.name,
-      grade: form.grade,
-      section: form.section,
-      status: "active",
-      dob: form.dob,
-      gender: form.gender as Student["gender"],
-    };
-    setStudents((prev) => [newStudent, ...prev]);
     setForm({ ...BLANK_FORM });
     setOpen(false);
   };
@@ -87,7 +70,11 @@ export function StudentsPage(): React.JSX.Element {
             className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#2E7DD1] sm:w-auto"
           >
             <option value="all">All Grades</option>
-            {["6","7","8","9","10"].map((g) => <option key={g} value={g}>Grade {g}</option>)}
+            {grades.map((grade) => (
+              <option key={grade} value={grade}>
+                {grade}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -104,7 +91,9 @@ export function StudentsPage(): React.JSX.Element {
             <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
             <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-xl">
               <Dialog.Title className="mb-1 text-lg font-semibold text-[#1A1A2E]">Add Student</Dialog.Title>
-              <Dialog.Description className="mb-5 text-sm text-[#4A4A6A]">Fill in the student details below.</Dialog.Description>
+              <Dialog.Description className="mb-5 text-sm text-[#4A4A6A]">
+                SIS create/edit wiring is the next backend slice. This dialog is ready for that handoff.
+              </Dialog.Description>
               <form onSubmit={handleAdd} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
@@ -124,17 +113,13 @@ export function StudentsPage(): React.JSX.Element {
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[#1A1A2E]">Grade</label>
-                    <select value={form.grade} onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#2E7DD1]">
-                      {["6","7","8","9","10"].map((g) => <option key={g} value={g}>Grade {g}</option>)}
-                    </select>
+                    <input required value={form.grade} onChange={(e) => setForm((f) => ({ ...f, grade: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#2E7DD1]" placeholder="Grade 6" />
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[#1A1A2E]">Section</label>
-                    <select value={form.section} onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#2E7DD1]">
-                      {["A","B","C"].map((s) => <option key={s} value={s}>Section {s}</option>)}
-                    </select>
+                    <input required value={form.section} onChange={(e) => setForm((f) => ({ ...f, section: e.target.value }))}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#2E7DD1]" placeholder="A" />
                   </div>
                   <div>
                     <label className="mb-1 block text-sm font-medium text-[#1A1A2E]">Gender</label>
@@ -148,7 +133,7 @@ export function StudentsPage(): React.JSX.Element {
                   <Dialog.Close asChild>
                     <button type="button" className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-[#4A4A6A] hover:bg-gray-50">Cancel</button>
                   </Dialog.Close>
-                  <button type="submit" className="rounded-lg bg-[#1B3A6B] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2E7DD1]">Add Student</button>
+                  <button type="submit" className="rounded-lg bg-[#1B3A6B] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2E7DD1]">Save Draft</button>
                 </div>
               </form>
             </Dialog.Content>
@@ -177,9 +162,11 @@ export function StudentsPage(): React.JSX.Element {
               {filtered.map((s) => (
                 <tr key={s.id} className="hover:bg-gray-50/50 transition-colors">
                   <td className="px-5 py-3.5 font-mono text-xs text-[#4A4A6A]">{s.admissionNo}</td>
-                  <td className="px-5 py-3.5 font-medium text-[#1A1A2E]">{s.name}</td>
-                  <td className="px-5 py-3.5 text-[#4A4A6A]">Grade {s.grade}-{s.section}</td>
-                  <td className="px-5 py-3.5 text-[#4A4A6A]">{s.gender}</td>
+                  <td className="px-5 py-3.5 font-medium text-[#1A1A2E]">{s.fullName}</td>
+                  <td className="px-5 py-3.5 text-[#4A4A6A]">
+                    {s.gradeName ?? s.gradeId} / {s.sectionName ?? s.sectionId}
+                  </td>
+                  <td className="px-5 py-3.5 capitalize text-[#4A4A6A]">{s.gender}</td>
                   <td className="px-5 py-3.5">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[s.status]}`}>
                       {s.status}
@@ -193,7 +180,9 @@ export function StudentsPage(): React.JSX.Element {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-[#4A4A6A]">No students found</td>
+                  <td colSpan={6} className="px-5 py-10 text-center text-[#4A4A6A]">
+                    {studentsQuery.isLoading ? "Loading students..." : "No students found"}
+                  </td>
                 </tr>
               )}
             </tbody>

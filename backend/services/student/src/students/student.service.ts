@@ -64,6 +64,10 @@ export class StudentService {
     const qb = this.studentRepo
       .createQueryBuilder('s')
       .leftJoinAndSelect('s.guardians', 'g')
+      .leftJoin('grades', 'grade', 'grade.id = s.gradeId')
+      .leftJoin('sections', 'section', 'section.id = s.sectionId')
+      .addSelect('grade.name', 'grade_name')
+      .addSelect('section.name', 'section_name')
       .where('s.schoolId = :schoolId', { schoolId })
       .andWhere('s.deletedAt IS NULL');
 
@@ -77,7 +81,13 @@ export class StudentService {
       );
     }
 
-    return qb.orderBy('s.rollNumber', 'ASC').getMany();
+    const { entities, raw } = await qb.orderBy('s.rollNumber', 'ASC').getRawAndEntities();
+
+    return entities.map((student, index) => ({
+      ...student,
+      gradeName: raw[index]?.['grade_name'] ?? null,
+      sectionName: raw[index]?.['section_name'] ?? null,
+    }));
   }
 
   async findOne(schoolId: string, studentId: string): Promise<Student> {

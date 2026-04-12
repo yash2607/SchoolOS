@@ -13,13 +13,13 @@ export class AuthController {
   @Post('otp/send')
   @ApiOperation({ summary: 'Send OTP to mobile number' })
   sendOtp(@Body() dto: SendOtpDto) {
-    return this.authService.sendOtp(dto.mobile);
+    return this.authService.sendOtp(dto.mobile, dto.schoolCode);
   }
 
   @Post('otp/verify')
   @ApiOperation({ summary: 'Verify OTP and get tokens' })
   verifyOtp(@Body() dto: VerifyOtpDto) {
-    return this.authService.verifyOtp(dto.mobile, dto.otp);
+    return this.authService.verifyOtp(dto.mobile, dto.otp, dto.schoolCode);
   }
 
   @Get('me')

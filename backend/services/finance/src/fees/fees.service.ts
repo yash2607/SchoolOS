@@ -15,6 +15,7 @@ import type {
   UpdateFeeItemDto,
   GenerateInvoicesDto,
   InitiatePaymentDto,
+  VerifyPaymentDto,
   ManualPaymentDto,
 } from './dto/fees.dto';
 
@@ -255,7 +256,15 @@ export class FeesService {
     schoolId: string,
     createdByUserId: string,
     dto: InitiatePaymentDto,
-  ): Promise<{ orderId: string; amount: number; currency: string; keyId: string }> {
+  ): Promise<{
+    orderId: string;
+    amount: number;
+    currency: string;
+    keyId: string;
+    paymentId: string;
+    invoiceId: string;
+    callbackUrl: string | null;
+  }> {
     const invoice = await this.invoiceRepo.findOne({ where: { id: dto.invoiceId, schoolId } });
     if (!invoice) throw new NotFoundException('Invoice not found');
 
@@ -315,7 +324,182 @@ export class FeesService {
       amount: dto.amount,
       currency,
       keyId: this.razorpayKeyId ?? 'rzp_test_mock',
+      paymentId: payment.id,
+      invoiceId: invoice.id,
+      callbackUrl: dto.callbackUrl ?? null,
     };
+  }
+
+  async verifyPayment(
+    schoolId: string,
+    verifiedByUserId: string,
+    dto: VerifyPaymentDto,
+  ): Promise<{ success: boolean; paymentId: string; invoiceId: string | null }> {
+    const payment = await this.paymentRepo.findOne({
+      where: { schoolId, gatewayOrderId: dto.orderId },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment order not found');
+    }
+
+    if (payment.status === 'success') {
+      return {
+        success: true,
+        paymentId: payment.gatewayPaymentId ?? dto.paymentId,
+        invoiceId: payment.invoiceId,
+      };
+    }
+
+    if (payment.createdByUserId !== verifiedByUserId) {
+      throw new ForbiddenException('You do not have access to verify this payment');
+    }
+
+    if (this.razorpayKeySecret) {
+      const payload = `${dto.orderId}|${dto.paymentId}`;
+      const expectedSignature = crypto
+        .createHmac('sha256', this.razorpayKeySecret)
+        .update(payload)
+        .digest('hex');
+
+      if (expectedSignature !== dto.signature) {
+        throw new BadRequestException('Invalid Razorpay payment signature');
+      }
+    }
+
+    payment.status = 'success';
+    payment.gatewayPaymentId = dto.paymentId;
+    payment.receiptKey = dto.signature;
+    payment.paidAt = new Date();
+    await this.paymentRepo.save(payment);
+
+    if (payment.invoiceId) {
+      await this.updateInvoiceAfterPayment(payment.invoiceId, payment.amount);
+    }
+
+    return {
+      success: true,
+      paymentId: dto.paymentId,
+      invoiceId: payment.invoiceId,
+    };
+  }
+
+  async renderCheckoutPage(paymentId: string, callbackUrl: string): Promise<string> {
+    const payment = await this.paymentRepo.findOne({ where: { id: paymentId } });
+    if (!payment) {
+      throw new NotFoundException('Payment not found');
+    }
+
+    if (!this.razorpayKeyId) {
+      throw new BadRequestException('Razorpay is not configured');
+    }
+
+    if (!payment.gatewayOrderId) {
+      throw new BadRequestException('Payment order is not ready for checkout');
+    }
+
+    const safeCallbackUrl = callbackUrl?.trim();
+    if (!safeCallbackUrl) {
+      throw new BadRequestException('callbackUrl is required');
+    }
+
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SchoolOS Payment</title>
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <style>
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: linear-gradient(160deg, #0f172a, #1d4ed8);
+        color: #fff;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card {
+        width: min(92vw, 420px);
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(14px);
+        border-radius: 24px;
+        padding: 28px;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.35);
+      }
+      .amount { font-size: 32px; font-weight: 700; margin: 12px 0 4px; }
+      button {
+        width: 100%;
+        margin-top: 20px;
+        border: none;
+        border-radius: 14px;
+        padding: 14px 18px;
+        background: #fff;
+        color: #1d4ed8;
+        font-size: 16px;
+        font-weight: 700;
+      }
+      .muted { color: rgba(255, 255, 255, 0.78); font-size: 14px; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="muted">SchoolOS secure payment</div>
+      <div class="amount">${(payment.amount / 100).toFixed(2)} ${payment.currency}</div>
+      <div class="muted">Tap below to continue with Razorpay Checkout.</div>
+      <button id="pay-button" type="button">Continue to pay</button>
+    </div>
+    <script>
+      const callbackUrl = ${JSON.stringify(safeCallbackUrl)};
+      const redirect = (params) => {
+        const url = new URL(callbackUrl);
+        Object.entries(params).forEach(([key, value]) => {
+          if (value) url.searchParams.set(key, String(value));
+        });
+        window.location.replace(url.toString());
+      };
+
+      const options = {
+        key: ${JSON.stringify(this.razorpayKeyId)},
+        order_id: ${JSON.stringify(payment.gatewayOrderId)},
+        amount: ${JSON.stringify(payment.amount)},
+        currency: ${JSON.stringify(payment.currency)},
+        name: "SchoolOS",
+        description: "Fee payment",
+        handler: function (response) {
+          redirect({
+            razorpay_status: "success",
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+        },
+        modal: {
+          ondismiss: function () {
+            redirect({ razorpay_status: "cancelled" });
+          }
+        }
+      };
+
+      const checkout = new window.Razorpay(options);
+      checkout.on("payment.failed", function (response) {
+        redirect({
+          razorpay_status: "failed",
+          razorpay_code: response.error && response.error.code,
+          razorpay_reason: response.error && response.error.description
+        });
+      });
+
+      document.getElementById("pay-button").addEventListener("click", function () {
+        checkout.open();
+      });
+
+      checkout.open();
+    </script>
+  </body>
+</html>`;
   }
 
   async handleWebhook(rawBody: Buffer, signature: string): Promise<{ received: boolean }> {

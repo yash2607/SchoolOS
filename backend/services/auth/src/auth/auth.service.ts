@@ -17,12 +17,19 @@ export class AuthService {
     private readonly jwtTokenService: JwtTokenService,
   ) {}
 
-  async sendOtp(mobile: string): Promise<{ message: string; expiresIn: number }> {
+  async sendOtp(
+    mobile: string,
+    schoolCode?: string,
+  ): Promise<{ message: string; expiresIn: number; schoolCode?: string }> {
     await this.otpService.sendOtp(mobile);
-    return { message: 'OTP sent successfully', expiresIn: 300 };
+    return {
+      message: 'OTP sent successfully',
+      expiresIn: 300,
+      ...(schoolCode ? { schoolCode } : {}),
+    };
   }
 
-  async verifyOtp(mobile: string, otp: string) {
+  async verifyOtp(mobile: string, otp: string, schoolCode?: string) {
     const result = await this.otpService.verifyOtp(mobile, otp);
     if (!result.valid) {
       throw new UnauthorizedException(result.reason ?? 'Invalid OTP');
@@ -32,7 +39,7 @@ export class AuthService {
     let school = await this.schoolRepo.findOne({ where: { isActive: true } });
     if (!school) {
       school = this.schoolRepo.create({
-        name: 'Demo School',
+        name: schoolCode?.trim() ? `School ${schoolCode.trim()}` : 'Demo School',
         timezone: 'Asia/Kolkata',
         logoUrl: null,
       });

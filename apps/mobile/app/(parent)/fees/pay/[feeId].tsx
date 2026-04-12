@@ -1,18 +1,18 @@
-import { useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as ExpoLinking from "expo-linking";
 import { Ionicons } from "@expo/vector-icons";
 import { Card, EmptyState, SkeletonLoader, Badge } from "@schoolos/ui";
-import { useCreatePaymentOrder, useStudentFees } from "@schoolos/api";
+import {
+  apiClient,
+  useCreatePaymentOrder,
+  useStudentFees,
+  useVerifyPayment,
+} from "@schoolos/api";
 import { formatDate, formatINR } from "@schoolos/utils";
 import { useAuthStore } from "../../../../store/authStore";
-
-interface CreatedOrder {
-  orderId: string;
-  amount: number;
-  currency: string;
-  keyId: string;
-}
+import type { CreatePaymentOrderInput, PaymentOrder } from "@schoolos/types";
 
 export default function FeePayScreen(): React.JSX.Element {
   const { feeId } = useLocalSearchParams<{ feeId: string }>();
@@ -20,23 +20,90 @@ export default function FeePayScreen(): React.JSX.Element {
   const { activeChildId, activeChild } = useAuthStore();
   const { data, isLoading } = useStudentFees(activeChildId);
   const createOrder = useCreatePaymentOrder();
-  const [order, setOrder] = useState<CreatedOrder | null>(null);
+  const verifyPayment = useVerifyPayment();
+  const [order, setOrder] = useState<PaymentOrder | null>(null);
+  const [checkoutState, setCheckoutState] = useState<
+    "idle" | "launching" | "verifying" | "success" | "cancelled" | "failed"
+  >("idle");
+  const lastHandledUrlRef = useRef<string | null>(null);
   const installment = data?.installments.find((item) => item.id === feeId);
 
   const amount = installment
     ? installment.amount + installment.lateFeeApplied
     : 0;
 
+  useEffect(() => {
+    const handleUrl = (url: string | null) => {
+      if (!url || lastHandledUrlRef.current === url) return;
+
+      const parsed = ExpoLinking.parse(url);
+      if (!parsed.path?.endsWith(`/fees/pay/${feeId}`)) return;
+
+      lastHandledUrlRef.current = url;
+      const params = parsed.queryParams ?? {};
+      const status = typeof params.razorpay_status === "string" ? params.razorpay_status : null;
+
+      if (status === "success") {
+        const orderId = typeof params.razorpay_order_id === "string" ? params.razorpay_order_id : "";
+        const paymentId = typeof params.razorpay_payment_id === "string" ? params.razorpay_payment_id : "";
+        const signature = typeof params.razorpay_signature === "string" ? params.razorpay_signature : "";
+
+        if (!orderId || !paymentId || !signature) {
+          setCheckoutState("failed");
+          return;
+        }
+
+        setCheckoutState("verifying");
+        verifyPayment.mutate(
+          { orderId, paymentId, signature },
+          {
+            onSuccess: () => setCheckoutState("success"),
+            onError: () => setCheckoutState("failed"),
+          }
+        );
+        return;
+      }
+
+      if (status === "cancelled") {
+        setCheckoutState("cancelled");
+        return;
+      }
+
+      if (status === "failed") {
+        setCheckoutState("failed");
+      }
+    };
+
+    const subscription = Linking.addEventListener("url", ({ url }) => handleUrl(url));
+    void Linking.getInitialURL().then(handleUrl);
+    return () => subscription.remove();
+  }, [feeId, verifyPayment]);
+
   const startPayment = () => {
     if (!installment || createOrder.isPending) return;
 
-    createOrder.mutate(
-      {
+    setCheckoutState("launching");
+    const callbackUrl = ExpoLinking.createURL(`/fees/pay/${feeId}`);
+
+    const payload: CreatePaymentOrderInput = {
         invoiceId: installment.id,
         amount,
-      },
+        callbackUrl,
+      };
+
+    createOrder.mutate(
+      payload,
       {
-        onSuccess: setOrder,
+        onSuccess: async (createdOrder) => {
+          setOrder(createdOrder);
+          const checkoutUrl = `${apiClient.defaults.baseURL}/api/v1/fees/payment/checkout/${createdOrder.paymentId}?callbackUrl=${encodeURIComponent(callbackUrl)}`;
+          try {
+            await Linking.openURL(checkoutUrl);
+          } catch {
+            setCheckoutState("failed");
+          }
+        },
+        onError: () => setCheckoutState("failed"),
       }
     );
   };
@@ -126,21 +193,45 @@ export default function FeePayScreen(): React.JSX.Element {
         {order && (
           <Card padding="md" style={{ borderLeftWidth: 4, borderLeftColor: "#1A7A4A" }}>
             <Text className="text-sm font-semibold text-success mb-1">
-              Payment order created
+              Razorpay order ready
             </Text>
             <Text className="text-xs text-text-secondary">
               Order ID: {order.orderId}
             </Text>
-            <Text className="text-xs text-text-secondary mt-1">
-              Razorpay checkout wiring is the next step.
+          </Card>
+        )}
+
+        {checkoutState === "verifying" && (
+          <Card padding="md" style={{ borderLeftWidth: 4, borderLeftColor: "#2E7DD1" }}>
+            <Text className="text-sm font-semibold text-accent">
+              Verifying your payment...
             </Text>
           </Card>
         )}
 
-        {createOrder.error && (
+        {checkoutState === "success" && (
+          <Card padding="md" style={{ borderLeftWidth: 4, borderLeftColor: "#1A7A4A" }}>
+            <Text className="text-sm font-semibold text-success mb-1">
+              Payment captured successfully
+            </Text>
+            <Text className="text-xs text-text-secondary">
+              Your fee status will refresh automatically.
+            </Text>
+          </Card>
+        )}
+
+        {checkoutState === "cancelled" && (
+          <Card padding="md" style={{ borderLeftWidth: 4, borderLeftColor: "#D4600A" }}>
+            <Text className="text-sm font-semibold text-warning">
+              Checkout was cancelled before payment completed.
+            </Text>
+          </Card>
+        )}
+
+        {(createOrder.error || checkoutState === "failed" || verifyPayment.error) && (
           <Card padding="md" style={{ borderLeftWidth: 4, borderLeftColor: "#B91C1C" }}>
             <Text className="text-sm font-semibold text-error">
-              Could not create payment order. Please try again.
+              We could not complete the Razorpay payment. Please try again.
             </Text>
           </Card>
         )}
@@ -148,11 +239,19 @@ export default function FeePayScreen(): React.JSX.Element {
         <Pressable
           className="rounded-2xl bg-accent px-4 py-4"
           onPress={startPayment}
-          disabled={createOrder.isPending || installment.status === "paid"}
+          disabled={
+            createOrder.isPending ||
+            verifyPayment.isPending ||
+            installment.status === "paid"
+          }
           accessibilityRole="button"
         >
           <Text className="text-center text-base font-bold text-white">
-            {createOrder.isPending ? "Creating order..." : "Create Payment Order"}
+            {createOrder.isPending || checkoutState === "launching"
+              ? "Opening Razorpay..."
+              : verifyPayment.isPending
+                ? "Verifying payment..."
+                : "Pay with Razorpay"}
           </Text>
         </Pressable>
       </View>

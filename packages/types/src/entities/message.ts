@@ -4,6 +4,9 @@ export interface MessageThread {
   teacherUserId: string;
   parentUserId: string;
   studentId: string;
+  teacherName: string | null;
+  parentName: string | null;
+  studentName: string | null;
   lastMessageAt: string | null;
   createdAt: string;
   updatedAt: string;

@@ -13,16 +13,82 @@ interface ParentChildResponse {
   blurhash?: string | null;
 }
 
+interface StudentListResponse {
+  id: string;
+  studentCode: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string | null;
+  gender: "M" | "F" | "Other";
+  gradeId: string;
+  sectionId: string;
+  photoUrl?: string | null;
+  iepFlag: boolean;
+  admissionDate: string | null;
+  status: "active" | "transferred" | "withdrawn";
+  gradeName?: string | null;
+  sectionName?: string | null;
+}
+
+interface UseStudentsFilters {
+  gradeId?: string;
+  sectionId?: string;
+  status?: string;
+  search?: string;
+}
+
+function mapStudent(student: StudentListResponse): Student {
+  return {
+    id: student.id,
+    admissionNo: student.studentCode,
+    firstName: student.firstName,
+    lastName: student.lastName,
+    fullName: `${student.firstName} ${student.lastName}`.trim(),
+    dob: student.dateOfBirth ?? "",
+    gender:
+      student.gender === "M"
+        ? "male"
+        : student.gender === "F"
+          ? "female"
+          : "other",
+    gradeId: student.gradeId,
+    sectionId: student.sectionId,
+    photoUrl: student.photoUrl ?? null,
+    blurhash: null,
+    healthNotes: null,
+    hasIep: student.iepFlag,
+    enrollmentDate: student.admissionDate ?? "",
+    status: student.status === "withdrawn" ? "inactive" : student.status,
+  };
+}
+
 export function useStudent(studentId: string | null) {
   return useQuery({
     queryKey: ["students", studentId],
     queryFn: async () => {
-      const { data } = await apiClient.get<Student>(
+      const { data } = await apiClient.get<StudentListResponse>(
         `/api/v1/students/${studentId}`
       );
-      return data;
+      return mapStudent(data);
     },
     enabled: !!studentId,
+  });
+}
+
+export function useStudents(filters: UseStudentsFilters = {}) {
+  return useQuery({
+    queryKey: ["students", "list", filters],
+    queryFn: async () => {
+      const { data } = await apiClient.get<StudentListResponse[]>(
+        "/api/v1/students",
+        { params: filters }
+      );
+      return data.map((student) => ({
+        ...mapStudent(student),
+        gradeName: student.gradeName ?? null,
+        sectionName: student.sectionName ?? null,
+      }));
+    },
   });
 }
 

@@ -182,7 +182,10 @@ export function LoginPage(): React.JSX.Element {
     if (phone.length < 10) { setError("Enter a valid 10-digit phone number"); return; }
     setLoading(true);
     try {
-      await apiClient.post("/api/v1/auth/otp/send", { mobile: fmt(phone) });
+      await apiClient.post("/api/v1/auth/otp/send", {
+        mobile: fmt(phone),
+        schoolCode,
+      });
       setStep("otp");
       setCountdown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
@@ -211,7 +214,7 @@ export function LoginPage(): React.JSX.Element {
       const { data } = await apiClient.post<{
         user: AdminUser; school: { id: string; name: string };
         accessToken: string; refreshToken: string;
-      }>("/api/v1/auth/otp/verify", { mobile: fmt(phone), otp: c });
+      }>("/api/v1/auth/otp/verify", { mobile: fmt(phone), otp: c, schoolCode });
       await setAuth({ ...data.user, schoolName: data.school?.name ?? "" }, data.accessToken, data.refreshToken);
       navigate("/dashboard", { replace: true });
     } catch (err: unknown) {
@@ -226,7 +229,7 @@ export function LoginPage(): React.JSX.Element {
     if (countdown > 0) return;
     setError(""); setLoading(true);
     try {
-      await apiClient.post("/api/v1/auth/otp/send", { mobile: fmt(phone) });
+      await apiClient.post("/api/v1/auth/otp/send", { mobile: fmt(phone), schoolCode });
       setCountdown(30); setOtp(["", "", "", "", "", ""]);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } catch { setError("Failed to resend OTP"); }

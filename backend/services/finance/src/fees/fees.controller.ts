@@ -11,9 +11,10 @@ import {
   Req,
   RawBodyRequest,
   Headers,
+  Res,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiQuery } from '@nestjs/swagger';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { FeesService } from './fees.service';
 import { JwtAuthGuard } from '../common/jwt.guard';
 import { CurrentUser } from '../common/current-user.decorator';
@@ -23,6 +24,7 @@ import {
   UpdateFeeItemDto,
   GenerateInvoicesDto,
   InitiatePaymentDto,
+  VerifyPaymentDto,
   ManualPaymentDto,
 } from './dto/fees.dto';
 
@@ -139,6 +141,25 @@ export class FeesController {
   @ApiOperation({ summary: 'Initiate Razorpay payment order' })
   initiatePayment(@CurrentUser() user: JwtPayload, @Body() dto: InitiatePaymentDto) {
     return this.feesService.initiatePayment(user.schoolId, user.sub, dto);
+  }
+
+  @Get('fees/payment/checkout/:paymentId')
+  @ApiOperation({ summary: 'Hosted Razorpay checkout page for mobile redirect flow' })
+  async renderCheckoutPage(
+    @Param('paymentId') paymentId: string,
+    @Query('callbackUrl') callbackUrl: string,
+    @Res() res: Response,
+  ) {
+    const html = await this.feesService.renderCheckoutPage(paymentId, callbackUrl);
+    res.type('html').send(html);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @Post('fees/payment/verify')
+  @ApiOperation({ summary: 'Verify Razorpay payment after checkout' })
+  verifyPayment(@CurrentUser() user: JwtPayload, @Body() dto: VerifyPaymentDto) {
+    return this.feesService.verifyPayment(user.schoolId, user.sub, dto);
   }
 
   @Post('fees/payment/webhook')

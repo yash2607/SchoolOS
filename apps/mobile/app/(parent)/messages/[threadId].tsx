@@ -15,6 +15,7 @@ import { Card, EmptyState, SkeletonLoader } from "@schoolos/ui";
 import {
   apiClient,
   createWebSocketClient,
+  useConversations,
   useMessageThread,
   useSendMessage,
 } from "@schoolos/api";
@@ -28,9 +29,11 @@ export default function ParentMessageThreadScreen(): React.JSX.Element {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { user } = useAuthStore();
   const [draft, setDraft] = useState("");
+  const conversationsQuery = useConversations();
   const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useMessageThread(threadId ?? null);
   const sendMessage = useSendMessage(threadId);
+  const thread = conversationsQuery.data?.find((item) => item.id === threadId);
 
   const messages = data?.pages.slice().reverse().flatMap((page) => page.messages) ?? [];
 
@@ -94,9 +97,13 @@ export default function ParentMessageThreadScreen(): React.JSX.Element {
             <Ionicons name="chevron-back" size={24} color="#1A1A2E" />
           </Pressable>
           <View>
-            <Text className="text-xl font-bold text-text-primary">Messages</Text>
+            <Text className="text-xl font-bold text-text-primary">
+              {thread?.teacherName ?? "Messages"}
+            </Text>
             <Text className="text-xs text-text-secondary mt-1">
-              Parent-teacher conversation
+              {thread?.studentName
+                ? `Regarding ${thread.studentName}`
+                : "Parent-teacher conversation"}
             </Text>
           </View>
         </View>

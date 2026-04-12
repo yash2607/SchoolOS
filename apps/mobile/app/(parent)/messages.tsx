@@ -54,8 +54,13 @@ export default function MessagesScreen(): React.JSX.Element {
               <View className="flex-row items-start justify-between">
                 <View className="flex-1 pr-3">
                   <Text className="text-base font-bold text-text-primary">
-                    Teacher conversation
+                    {thread.teacherName ?? "Teacher conversation"}
                   </Text>
+                  {thread.studentName && (
+                    <Text className="text-xs text-text-secondary mt-1">
+                      Regarding {thread.studentName}
+                    </Text>
+                  )}
                   <Text className="text-sm text-text-secondary mt-1" numberOfLines={2}>
                     {thread.lastMessage?.content ?? "No messages yet. Start the conversation."}
                   </Text>

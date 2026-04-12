@@ -1,27 +1,36 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { MessageThread } from '../entities/message-thread.entity';
 import { Message } from '../entities/message.entity';
 import type { CreateThreadDto, SendMessageDto } from './dto/message.dto';
+
+export interface MessageThreadParticipantNames {
+  teacherName: string | null;
+  parentName: string | null;
+  studentName: string | null;
+}
 
 @Injectable()
 export class MessagesService {
   constructor(
     @InjectRepository(MessageThread) private readonly threadRepo: Repository<MessageThread>,
     @InjectRepository(Message) private readonly messageRepo: Repository<Message>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async listThreads(
     schoolId: string,
     userId: string,
-  ): Promise<Array<MessageThread & { lastMessage: Message | null; unreadCount: number }>> {
+  ): Promise<Array<MessageThread & MessageThreadParticipantNames & { lastMessage: Message | null; unreadCount: number }>> {
     const threads = await this.threadRepo
       .createQueryBuilder('t')
       .where('t.schoolId = :schoolId', { schoolId })
       .andWhere('(t.teacherUserId = :userId OR t.parentUserId = :userId)', { userId })
       .orderBy('t.lastMessageAt', 'DESC', 'NULLS LAST')
       .getMany();
+
+    const participantNames = await this.getParticipantNamesByThread(threads);
 
     const result = await Promise.all(
       threads.map(async (thread) => {
@@ -37,7 +46,16 @@ export class MessagesService {
           .andWhere('m.readAt IS NULL')
           .getCount();
 
-        return { ...thread, lastMessage, unreadCount };
+        return {
+          ...thread,
+          ...(participantNames.get(thread.id) ?? {
+            teacherName: null,
+            parentName: null,
+            studentName: null,
+          }),
+          lastMessage,
+          unreadCount,
+        };
       }),
     );
 
@@ -140,5 +158,45 @@ export class MessagesService {
     if (thread.teacherUserId !== userId && thread.parentUserId !== userId) {
       throw new ForbiddenException('You do not have access to this thread');
     }
+  }
+
+  private async getParticipantNamesByThread(
+    threads: MessageThread[],
+  ): Promise<Map<string, MessageThreadParticipantNames>> {
+    const result = new Map<string, MessageThreadParticipantNames>();
+    if (!threads.length) return result;
+
+    const rows = await this.dataSource.query<
+      Array<{
+        threadId: string;
+        teacherName: string | null;
+        parentName: string | null;
+        studentName: string | null;
+      }>
+    >(
+      `
+        SELECT
+          t.id AS "threadId",
+          teacher.name AS "teacherName",
+          parent.name AS "parentName",
+          TRIM(CONCAT(COALESCE(student."firstName", ''), ' ', COALESCE(student."lastName", ''))) AS "studentName"
+        FROM message_threads t
+        LEFT JOIN users teacher ON teacher.id = t."teacherUserId"
+        LEFT JOIN users parent ON parent.id = t."parentUserId"
+        LEFT JOIN students student ON student.id = t."studentId"
+        WHERE t.id = ANY($1)
+      `,
+      [threads.map((thread) => thread.id)],
+    );
+
+    for (const row of rows) {
+      result.set(row.threadId, {
+        teacherName: row.teacherName,
+        parentName: row.parentName,
+        studentName: row.studentName?.trim() || null,
+      });
+    }
+
+    return result;
   }
 }
