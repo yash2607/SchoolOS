@@ -6,22 +6,22 @@ interface PaymentOrder {
   orderId: string;
   amount: number;
   currency: string;
-  gateway: "razorpay" | "stripe";
-  gatewayOrderId: string;
   keyId: string;
 }
 
 export function useCreatePaymentOrder() {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: async (payload: CreatePaymentOrderInput) => {
       const { data } = await apiClient.post<PaymentOrder>(
-        "/api/v1/fees/orders",
-        payload,
-        {
-          headers: { "X-Idempotency-Key": payload.idempotencyKey },
-        }
+        "/api/v1/fees/payment/initiate",
+        payload
       );
       return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["fees"] });
     },
   });
 }
