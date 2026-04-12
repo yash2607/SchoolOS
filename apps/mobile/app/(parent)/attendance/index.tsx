@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { View, Text, ScrollView } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
 import { Card, EmptyState, SkeletonLoader, Badge } from "@schoolos/ui";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuthStore } from "../../../store/authStore";
@@ -21,6 +22,7 @@ function labelForStatus(status: "present" | "absent" | "late" | "authorized_abse
 }
 
 export default function AttendanceScreen(): React.JSX.Element {
+  const router = useRouter();
   const { activeChildId, activeChild } = useAuthStore();
   const currentMonth = new Date().toISOString().slice(0, 7);
   const { data, isLoading } = useStudentAttendance(activeChildId, currentMonth);
@@ -43,6 +45,9 @@ export default function AttendanceScreen(): React.JSX.Element {
     return (
       <View className="flex-1 bg-background">
         <View className="bg-surface px-4 pt-12 pb-4 border-b border-gray-100">
+          <TouchableOpacity onPress={() => router.back()} className="mb-1 -ml-1 self-start p-1">
+            <Ionicons name="chevron-back" size={24} color="#2E7DD1" />
+          </TouchableOpacity>
           <Text className="text-2xl font-bold text-text-primary">Attendance</Text>
         </View>
         <EmptyState
@@ -69,6 +74,9 @@ export default function AttendanceScreen(): React.JSX.Element {
   return (
     <ScrollView className="flex-1 bg-background" contentContainerStyle={{ paddingBottom: 24 }}>
       <View className="bg-surface px-4 pt-12 pb-4 border-b border-gray-100">
+        <TouchableOpacity onPress={() => router.back()} className="mb-1 -ml-1 self-start p-1">
+          <Ionicons name="chevron-back" size={24} color="#2E7DD1" />
+        </TouchableOpacity>
         <Text className="text-2xl font-bold text-text-primary">Attendance</Text>
         {activeChild && (
           <Text className="text-text-secondary text-sm mt-1">

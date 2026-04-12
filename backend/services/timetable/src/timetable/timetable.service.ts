@@ -118,17 +118,18 @@ export class TimetableService {
 
     const rows: Record<string, unknown>[] = await this.dataSource.query(sql, [schoolId, teacherUserId]);
 
-    // Group by dayOfWeek
-    const grouped: Record<number, unknown[]> = {};
+    // Group by dayOfWeek — return in DaySchedule shape expected by frontend
+    const grouped: Record<number, Record<string, unknown>[]> = {};
     for (const row of rows) {
       const day = row['dayOfWeek'] as number;
       if (!grouped[day]) grouped[day] = [];
       grouped[day].push(row);
     }
 
-    return Object.entries(grouped).map(([day, entries]) => ({
+    return Object.entries(grouped).map(([day, periods]) => ({
       dayOfWeek: Number(day),
-      entries,
+      date: '',
+      periods,
     }));
   }
 

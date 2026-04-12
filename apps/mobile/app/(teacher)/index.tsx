@@ -49,7 +49,11 @@ export default function TeacherTodayScreen(): React.JSX.Element {
         <Card padding="lg" style={{ marginBottom: 16, backgroundColor: "#1B3A6B" }}>
           <Text className="text-white text-sm font-medium mb-1">Current Period</Text>
           <Text className="text-white text-2xl font-bold">{currentPeriod.subjectName}</Text>
-          <Text style={{ color: "#93C5FD" }} className="text-sm mt-1">{currentPeriod.sectionId}</Text>
+          <Text style={{ color: "#93C5FD" }} className="text-sm mt-1">
+            {currentPeriod.gradeName && currentPeriod.sectionName
+              ? `${currentPeriod.gradeName} · ${currentPeriod.sectionName}`
+              : currentPeriod.sectionName ?? currentPeriod.sectionId}
+          </Text>
           <Text style={{ color: "#93C5FD" }} className="text-sm">
             {currentPeriod.startTime} – {currentPeriod.endTime}
             {currentPeriod.room ? ` · Room ${currentPeriod.room}` : ""}
@@ -89,7 +93,11 @@ export default function TeacherTodayScreen(): React.JSX.Element {
               <View className="flex-row justify-between items-center">
                 <View>
                   <Text className="font-semibold text-text-primary">{period.subjectName}</Text>
-                  <Text className="text-text-secondary text-sm">{period.sectionId}</Text>
+                  <Text className="text-text-secondary text-sm">
+                    {period.gradeName && period.sectionName
+                      ? `${period.gradeName} · ${period.sectionName}`
+                      : period.sectionName ?? period.sectionId}
+                  </Text>
                 </View>
                 <Text className="text-accent font-medium">{period.startTime}</Text>
               </View>
