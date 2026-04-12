@@ -26,4 +26,4 @@ RUN cd backend/services/${SERVICE} && pnpm build
 WORKDIR /app
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD node backend/services/${SERVICE}/dist/services/${SERVICE}/src/main.js
+CMD node backend/services/${SERVICE}/dist/main.js
