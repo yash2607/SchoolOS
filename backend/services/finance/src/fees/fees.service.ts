@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between } from 'typeorm';
+import { DataSource, Repository, Between } from 'typeorm';
 import * as crypto from 'crypto';
 import { FeeItem } from '../entities/fee-item.entity';
 import { StudentInvoice } from '../entities/student-invoice.entity';
@@ -17,6 +18,11 @@ import type {
   ManualPaymentDto,
 } from './dto/fees.dto';
 
+interface FeeAccessActor {
+  userId: string;
+  role: string;
+}
+
 @Injectable()
 export class FeesService {
   private readonly razorpayKeyId: string | undefined;
@@ -27,6 +33,7 @@ export class FeesService {
     @InjectRepository(FeeItem) private readonly feeItemRepo: Repository<FeeItem>,
     @InjectRepository(StudentInvoice) private readonly invoiceRepo: Repository<StudentInvoice>,
     @InjectRepository(Payment) private readonly paymentRepo: Repository<Payment>,
+    private readonly dataSource: DataSource,
   ) {
     this.razorpayKeyId = process.env['RAZORPAY_KEY_ID'];
     this.razorpayKeySecret = process.env['RAZORPAY_KEY_SECRET'];
@@ -143,14 +150,20 @@ export class FeesService {
     return { created, skipped };
   }
 
-  async listInvoicesForStudent(schoolId: string, studentId: string): Promise<StudentInvoice[]> {
+  async listInvoicesForStudent(
+    schoolId: string,
+    studentId: string,
+    actor?: FeeAccessActor,
+  ): Promise<StudentInvoice[]> {
+    await this.ensureStudentFeeAccess(schoolId, studentId, actor);
     return this.invoiceRepo.find({
       where: { schoolId, studentId },
       order: { dueDate: 'DESC' },
     });
   }
 
-  async getStudentFeeAccount(schoolId: string, studentId: string) {
+  async getStudentFeeAccount(schoolId: string, studentId: string, actor?: FeeAccessActor) {
+    await this.ensureStudentFeeAccess(schoolId, studentId, actor);
     const invoices = await this.invoiceRepo
       .createQueryBuilder('i')
       .leftJoinAndMapOne('i.feeItem', FeeItem, 'f', 'f.id = i.feeItemId')
@@ -194,8 +207,8 @@ export class FeesService {
     };
   }
 
-  async getStudentFeeSummary(schoolId: string, studentId: string) {
-    const account = await this.getStudentFeeAccount(schoolId, studentId);
+  async getStudentFeeSummary(schoolId: string, studentId: string, actor?: FeeAccessActor) {
+    const account = await this.getStudentFeeAccount(schoolId, studentId, actor);
     const pendingInstallments = account.installments.filter((i: any) => ['unpaid', 'partial', 'overdue'].includes(i.status));
     const nextInstallment = pendingInstallments.sort((a: any, b: any) => a.dueDate.localeCompare(b.dueDate))[0] ?? null;
 
@@ -391,7 +404,12 @@ export class FeesService {
     return saved;
   }
 
-  async paymentHistory(schoolId: string, studentId: string): Promise<Payment[]> {
+  async paymentHistory(
+    schoolId: string,
+    studentId: string,
+    actor?: FeeAccessActor,
+  ): Promise<Payment[]> {
+    await this.ensureStudentFeeAccess(schoolId, studentId, actor);
     return this.paymentRepo.find({
       where: { schoolId, studentId },
       order: { createdAt: 'DESC' },
@@ -424,5 +442,31 @@ export class FeesService {
     }
 
     return { total, byMethod, payments };
+  }
+
+  private async ensureStudentFeeAccess(
+    schoolId: string,
+    studentId: string,
+    actor?: FeeAccessActor,
+  ): Promise<void> {
+    if (actor?.role !== 'PARENT') return;
+
+    const rows = await this.dataSource.query<Array<{ id: string }>>(
+      `
+        SELECT s.id
+        FROM students s
+        INNER JOIN guardians g ON g."studentId" = s.id
+        WHERE s.id = $1
+          AND s."schoolId" = $2
+          AND s."deletedAt" IS NULL
+          AND g."userId" = $3
+        LIMIT 1
+      `,
+      [studentId, schoolId, actor.userId],
+    );
+
+    if (!rows.length) {
+      throw new ForbiddenException('You do not have access to this student fee account');
+    }
   }
 }

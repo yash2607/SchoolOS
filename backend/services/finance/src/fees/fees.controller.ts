@@ -94,7 +94,10 @@ export class FeesController {
   @ApiOperation({ summary: 'List invoices for a student' })
   @ApiQuery({ name: 'studentId', required: true })
   listInvoices(@CurrentUser() user: JwtPayload, @Query('studentId') studentId: string) {
-    return this.feesService.listInvoicesForStudent(user.schoolId, studentId);
+    return this.feesService.listInvoicesForStudent(user.schoolId, studentId, {
+      userId: user.sub,
+      role: user.role,
+    });
   }
 
   @ApiBearerAuth()
@@ -111,7 +114,10 @@ export class FeesController {
   @Get('fees/student/:studentId')
   @ApiOperation({ summary: 'Get student fee account (parent safe)' })
   getStudentFeeAccount(@CurrentUser() user: JwtPayload, @Param('studentId') studentId: string) {
-    return this.feesService.getStudentFeeAccount(user.schoolId, studentId);
+    return this.feesService.getStudentFeeAccount(user.schoolId, studentId, {
+      userId: user.sub,
+      role: user.role,
+    });
   }
 
   @ApiBearerAuth()
@@ -119,7 +125,10 @@ export class FeesController {
   @Get('fees/student/:studentId/summary')
   @ApiOperation({ summary: 'Get student fee summary (parent safe)' })
   getStudentFeeSummary(@CurrentUser() user: JwtPayload, @Param('studentId') studentId: string) {
-    return this.feesService.getStudentFeeSummary(user.schoolId, studentId);
+    return this.feesService.getStudentFeeSummary(user.schoolId, studentId, {
+      userId: user.sub,
+      role: user.role,
+    });
   }
 
   // ─── Payments ─────────────────────────────────────────────────────────────
@@ -155,7 +164,10 @@ export class FeesController {
   @Get('fees/payment/:studentId')
   @ApiOperation({ summary: 'Payment history for a student' })
   paymentHistory(@CurrentUser() user: JwtPayload, @Param('studentId') studentId: string) {
-    return this.feesService.paymentHistory(user.schoolId, studentId);
+    return this.feesService.paymentHistory(user.schoolId, studentId, {
+      userId: user.sub,
+      role: user.role,
+    });
   }
 
   @ApiBearerAuth()
