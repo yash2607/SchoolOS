@@ -83,14 +83,17 @@ apiClient.interceptors.response.use(
 
         const { data } = await axios.post<{
           accessToken: string;
-          refreshToken: string;
+          refreshToken?: string;
         }>(
           `${apiClient.defaults.baseURL}/api/v1/auth/refresh`,
           { refreshToken },
           { timeout: API_TIMEOUT_MS }
         );
 
-        await tokenStorage?.setTokens(data.accessToken, data.refreshToken);
+        await tokenStorage?.setTokens(
+          data.accessToken,
+          data.refreshToken ?? refreshToken
+        );
 
         pendingRequests.forEach((cb) => cb(data.accessToken));
         pendingRequests = [];

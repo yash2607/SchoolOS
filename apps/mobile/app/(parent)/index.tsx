@@ -1,15 +1,34 @@
 import { ScrollView, View, Text, RefreshControl } from "react-native";
 import { useAuthStore } from "../../store/authStore";
 import { useParentDashboard } from "@schoolos/api";
-import { Card, SkeletonLoader, Badge } from "@schoolos/ui";
+import { Card, SkeletonLoader, Badge, EmptyState } from "@schoolos/ui";
 import { formatINR, relativeTime } from "@schoolos/utils";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function ParentDashboardScreen(): React.JSX.Element {
   const { activeChildId, activeChild, school } = useAuthStore();
   const router = useRouter();
 
   const { data, isLoading, refetch, isRefetching } = useParentDashboard(activeChildId);
+
+  if (!activeChildId) {
+    return (
+      <View className="flex-1 bg-background">
+        <View className="px-4 pt-14 pb-4">
+          <Text className="text-2xl font-bold text-text-primary">Dashboard</Text>
+          <Text className="text-text-secondary text-sm mt-1">
+            {school?.name}
+          </Text>
+        </View>
+        <EmptyState
+          icon={<Ionicons name="people-outline" size={48} color="#2E7DD1" />}
+          title="No linked child yet"
+          description="Your account is signed in, but no student profile is linked to it yet. Ask the school admin to connect your child account."
+        />
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (

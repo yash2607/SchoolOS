@@ -1,15 +1,63 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../client.js";
-import type { SubjectGradeSummary, GradebookCell } from "@schoolos/types";
+import type { GradebookCell } from "@schoolos/types";
+
+export interface StudentGradeItem {
+  id: string;
+  assignmentId: string;
+  title: string;
+  score: number | null;
+  maxScore: number;
+  feedback: string | null;
+  publishedAt: string | null;
+  dueDate: string | null;
+}
+
+export interface StudentGradeGroup {
+  subjectId: string;
+  subjectName: string;
+  items: StudentGradeItem[];
+}
 
 export function useStudentGrades(studentId: string | null) {
-  return useQuery({
+  return useQuery<StudentGradeGroup[]>({
     queryKey: ["grades", "student", studentId],
     queryFn: async () => {
-      const { data } = await apiClient.get<SubjectGradeSummary[]>(
-        `/api/v1/grades/student/${studentId}`
-      );
-      return data;
+      const { data } = await apiClient.get<
+        Array<{
+          subject: string;
+          items: Array<{
+            grade: {
+              id: string;
+              assignmentId: string;
+              score: number | null;
+              maxScore: number;
+              feedback: string | null;
+              publishedAt: string | null;
+            };
+            assignment: {
+              id: string;
+              title: string;
+              dueDate: string | null;
+            };
+          }>;
+        }>
+      >(`/api/v1/gradebook/student/${studentId}`);
+
+      return data.map<StudentGradeGroup>((group) => ({
+        subjectId: group.subject,
+        subjectName: group.subject,
+        items: group.items.map((item) => ({
+          id: item.grade.id,
+          assignmentId: item.grade.assignmentId,
+          title: item.assignment.title,
+          score: item.grade.score,
+          maxScore: item.grade.maxScore,
+          feedback: item.grade.feedback,
+          publishedAt: item.grade.publishedAt,
+          dueDate: item.assignment.dueDate,
+        })),
+      }));
     },
     enabled: !!studentId,
   });

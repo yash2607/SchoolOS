@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, Animated } from "react-native"
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { apiClient, extractApiError } from "@schoolos/api";
 import { Button } from "@schoolos/ui";
-import type { AuthUser } from "@schoolos/types";
+import type { AuthUser, ChildProfile } from "@schoolos/types";
 import { useAuthStore } from "../../store/authStore";
 import { tokenStorage } from "../../lib/tokenStorage";
 import { getGroupForRole } from "../../lib/roleRouter";
@@ -14,7 +14,7 @@ const OTP_LENGTH = 6;
 export default function OtpScreen(): React.JSX.Element {
   const { mobile } = useLocalSearchParams<{ mobile: string }>();
   const router = useRouter();
-  const { setAuth } = useAuthStore();
+  const { setAuth, setLinkedChildren } = useAuthStore();
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [loading, setLoading] = useState(false);
@@ -78,6 +78,33 @@ export default function OtpScreen(): React.JSX.Element {
       await tokenStorage.setTokens(response.data.accessToken, response.data.refreshToken);
       const user = response.data.user as AuthUser;
       setAuth(user, response.data.school, response.data.teacherId);
+      if (user.role === "PARENT") {
+        try {
+          const childrenRes = await apiClient.get<Array<{
+            id: string;
+            firstName: string;
+            lastName: string;
+            gradeId: string;
+            sectionId: string;
+            studentCode: string;
+            photoUrl?: string | null;
+            blurhash?: string | null;
+          }>>("/api/v1/me/children");
+
+          const children = childrenRes.data.map<ChildProfile>((child) => ({
+            id: child.id,
+            fullName: `${child.firstName} ${child.lastName}`.trim(),
+            photoUrl: child.photoUrl ?? null,
+            blurhash: child.blurhash ?? null,
+            gradeId: child.gradeId,
+            sectionId: child.sectionId,
+            admissionNo: child.studentCode,
+          }));
+          setLinkedChildren(children);
+        } catch {
+          setLinkedChildren([]);
+        }
+      }
       router.replace(getGroupForRole(user.role));
     } catch (err) {
       setError(extractApiError(err).error.message);
