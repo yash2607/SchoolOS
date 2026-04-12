@@ -1,10 +1,42 @@
 # SchoolOS — Product Reference Document
 > Single App + Web Admin + Backend | Living Reference for Feature-by-Feature Build
 
-**Version:** 2.0 (Single-App Architecture)  
+**Version:** 2.1 (Current State + Future Roadmap)  
 **Last Updated:** 2026-04-12  
 **Markets:** India, Southeast Asia, Middle East  
 **Goal:** Cloud-native, multi-tenant SaaS School ERP — one mobile app (role-aware) + web admin portal + powerful NestJS backend
+
+---
+
+## ⚡ Current Reality Snapshot
+
+> Read this first before starting any feature. Know what's actually working vs what's planned.
+
+| Layer | Current (Build on this NOW) | Future (Don't code for yet) |
+|-------|----------------------------|----------------------------|
+| **Backend hosting** | Railway.app | AWS EKS |
+| **Database** | PostgreSQL 16 + Redis 7 (Docker local, Railway prod) | AWS RDS Multi-AZ |
+| **ORM** | TypeORM | — (keep TypeORM) |
+| **Auth** | OTP via **Twilio WhatsApp** (1 verified sender number) | MSG91 (India DLT SMS), Google/Microsoft SSO |
+| **Push notifications** | Firebase FCM (configured, not wired up yet) | APNs (iOS), topic subscriptions |
+| **File storage** | Not implemented yet — keys configured for AWS S3 | AWS S3 + CloudFront CDN |
+| **Payments** | Not implemented yet — Razorpay + Stripe keys configured | Full payment gateway |
+| **Email** | SendGrid (configured, not implemented) | — |
+| **SMS** | Twilio WhatsApp only (OTP) | MSG91 DLT bulk SMS |
+| **AI** | Anthropic Claude — API key configured, `ai` service scaffolded | Streaming, rate limiting, cost tracking |
+| **Events/Queue** | Redis (cache/sessions only) | BullMQ (async jobs), Kafka |
+| **Admin web hosting** | Local dev only (Vite) | Vercel or Railway static |
+| **Mobile CI/CD** | EAS Build + GitHub Actions | — |
+| **What's deployed** | Only `auth` service on Railway | All 10 services |
+| **What's scaffolded** | 9 other NestJS services (no business logic yet) | — |
+| **Tests** | Zero tests written | Full test suite |
+
+### Twilio WhatsApp Note
+Currently using **one Twilio-verified WhatsApp sender number** for OTP. This means:
+- In development/testing: only pre-verified numbers can receive WhatsApp messages
+- For production at scale: need to apply for WhatsApp Business API approval (through Twilio or Meta directly)
+- Fallback for now: OTP is also printed to console (dev mode) so you can test without WhatsApp delivery
+- Future plan: add MSG91 as primary India SMS channel + Twilio as WhatsApp/international fallback
 
 ---
 
@@ -34,90 +66,114 @@
    - [5.17 Surveys & Feedback](#517-surveys--feedback)
 6. [Web Admin Portal](#6-web-admin-portal)
 7. [Backend Architecture](#7-backend-architecture)
-8. [Data Models (Key Entities)](#8-data-models-key-entities)
-9. [API Design Conventions](#9-api-design-conventions)
-10. [Build Phases & Priorities](#10-build-phases--priorities)
-11. [Screen Inventory](#11-screen-inventory)
+8. [Infrastructure & Hosting](#8-infrastructure--hosting)
+9. [Data Models (Key Entities)](#9-data-models-key-entities)
+10. [API Design Conventions](#10-api-design-conventions)
+11. [Build Phases & Priorities](#11-build-phases--priorities)
+12. [Screen Inventory](#12-screen-inventory)
 
 ---
 
 ## 1. Architecture Overview
 
-### Single App Model (Why)
-The original design had three separate apps (Parent App, Teacher App, Admin Web). This is now consolidated into:
+### Single App Model
+One Expo mobile app with role-aware UI + a React web admin portal + NestJS backend services.
 
-| Surface | Description |
-|---------|-------------|
-| **Mobile App** (`apps/mobile`) | One Expo app, role-aware UI. After login, the user sees the right tabs/features for their role (Parent / Teacher / School Admin on mobile). |
-| **Web Admin Portal** (`apps/admin`) | React SPA for School Administrators — full desktop-class school management. |
-| **Backend** (`backend/`) | NestJS microservices on AWS EKS. Single API consumed by both surfaces. |
+| Surface | Location | Status |
+|---------|----------|--------|
+| **Mobile App** | `apps/mobile` | ✅ Structure built, APK builds working, auth flow working |
+| **Web Admin Portal** | `apps/admin` | 🔶 UI pages scaffolded, no backend wired |
+| **Backend** | `backend/services/` | ✅ `auth` deployed on Railway; 9 services scaffolded |
 
 ### Role-Aware Mobile
-- After OTP/SSO login, the server returns a `role` + `permissions` payload
-- The mobile app renders a completely different tab bar and screen set depending on role
-- A user can have multiple roles (e.g., a teacher who is also a parent at the same school) — role switcher in profile
-- All feature flags and permissions are server-driven (no client-side gating)
+- After OTP login, server returns `{ role, permissions, schoolId, userId }`
+- Mobile renders a different tab bar per role: `(parent)`, `(teacher)`, `(admin)`
+- Multi-role users get a **"Switch Role"** option in profile (e.g., teacher who is also a parent)
+- All permissions are server-driven — no client-side gating
 
 ### Multi-Tenancy
-- Schema-per-tenant PostgreSQL isolation
-- Every API request carries a `X-School-ID` header (resolved from JWT claims)
-- Tenant provisioning is handled by a super-admin dashboard (separate internal tool, not in scope here)
+- Every school is a tenant. `schoolId` is embedded in the JWT and injected into every request
+- Currently: single PostgreSQL database, `schoolId` column on all tables
+- Future: schema-per-tenant for stronger isolation
+
+### Auth Flow (Currently Working)
+```
+User enters phone number
+  → POST /api/v1/auth/otp/send
+  → OTP generated, stored in Redis (5-min TTL)
+  → Sent via Twilio WhatsApp (or console in dev)
+User enters 6-digit OTP
+  → POST /api/v1/auth/otp/verify
+  → User created/fetched, session created
+  → Returns { accessToken, refreshToken, role, user }
+Tokens stored in expo-secure-store
+  → Auto-refresh on 401 (interceptor in @schoolos/api)
+```
 
 ---
 
 ## 2. Tech Stack
 
-### Mobile App
+### Mobile App (`apps/mobile`)
 
-| Layer | Choice | Notes |
-|-------|--------|-------|
-| Framework | Expo SDK 54, Managed Workflow | OTA updates via EAS, no custom native modules needed |
-| Language | TypeScript 5.x, strict mode | Shared with backend via `packages/types` |
-| Navigation | Expo Router v3 (file-based) | Role-based layout groups: `(parent)`, `(teacher)`, `(admin)` |
-| State (local) | Zustand 4.x | One slice per module; no prop drilling |
-| State (server) | TanStack Query v5 | Caching, background refetch, optimistic updates |
-| Styling | NativeWind v4 (Tailwind) | Matches web admin token system |
-| Forms | React Hook Form v7 + Zod v3 | Zod schemas shared with backend DTOs |
-| Offline | expo-sqlite (SQLite) | Attendance, timetable, gradebook cached locally; encrypted |
-| Push | Expo Notifications + FCM + APNs | Unified API, topic-based subscriptions |
-| Storage | expo-secure-store | JWT tokens, sensitive prefs |
-| File access | expo-document-picker, expo-image-picker | Assignment attachments, photo uploads |
-| Maps | react-native-maps | Bus tracking screen |
-| Payments | Razorpay React Native SDK / WebView | Fee payment flow |
+| Layer | Current Choice | Notes |
+|-------|---------------|-------|
+| Framework | Expo SDK 54 + React Native 0.81.5 | ✅ Working, APK builds locally |
+| Language | TypeScript 5.x strict | ✅ |
+| Navigation | Expo Router v3 (file-based) | ✅ Route groups per role |
+| State (local) | Zustand 4.x | ✅ |
+| State (server) | TanStack Query v5 | ✅ |
+| Styling | NativeWind v4 (Tailwind) | ✅ |
+| Forms | React Hook Form v7 + Zod v3 | ✅ |
+| Offline cache | expo-sqlite | ✅ Configured |
+| Push notifications | Expo Notifications + FCM | 🔶 Configured, not wired |
+| Biometric auth | expo-local-authentication | ✅ Configured |
+| Secure storage | expo-secure-store | ✅ For JWT tokens |
+| File picker | expo-document-picker, expo-image-picker | ✅ |
+| Maps | react-native-maps | ✅ Installed |
+| Animations | react-native-reanimated + Bottom Sheet | ✅ |
+| Payments | Razorpay SDK / WebView | 🔶 Keys configured, not implemented |
 
-### Web Admin Portal
+### Web Admin Portal (`apps/admin`)
 
-| Layer | Choice |
-|-------|--------|
-| Framework | React 18 + Vite |
-| Routing | React Router v6 |
-| Styling | Tailwind CSS v3 |
-| State | TanStack Query v5 + Zustand |
-| Tables | TanStack Table v8 |
-| Charts | Recharts |
-| Forms | React Hook Form + Zod |
-| Rich Text | TipTap |
-| Drag & Drop | @dnd-kit/core (timetable builder) |
-| PDF Viewer | react-pdf |
+| Layer | Current Choice | Notes |
+|-------|---------------|-------|
+| Framework | React 18.3 + Vite | ✅ |
+| Routing | React Router | ✅ |
+| Styling | Tailwind CSS + Radix UI | ✅ |
+| State | Zustand + TanStack Query | ✅ |
+| Forms | React Hook Form + Zod | ✅ |
+| Charts | Recharts | ✅ |
+| Tables | TanStack Table | ✅ |
+| Rich Text | — | Not yet added |
+| Drag & Drop | — | Not yet added (needed for timetable builder) |
+| Deployment | Local dev only (Vite) | ⬜ Future: Railway or Vercel |
 
-### Backend
+### Backend Services (`backend/services/`)
 
-| Layer | Choice | Notes |
-|-------|--------|-------|
-| Runtime | Node.js 20 LTS | |
-| Framework | NestJS 10 | DI, guards, interceptors, decorators |
-| Database | PostgreSQL 15+ | Schema-per-tenant, pg_partman partitioning |
-| ORM | Prisma | Per-tenant client instantiation |
-| Queue | BullMQ + Redis | Async jobs: PDF gen, bulk notifications, report gen |
-| Real-time | WebSocket (Socket.io) | Attendance live dashboard, bus location |
-| Auth | Custom NestJS service | OTP via MSG91, Google/Microsoft OIDC, JWT |
-| File Storage | AWS S3 + CloudFront CDN | Pre-signed URLs (24hr), versioned PDFs |
-| Email | SendGrid | Receipts, report cards, weekly summaries |
-| SMS/WhatsApp | MSG91 (India) + Twilio (fallback) | DLT-registered, OTP + bulk alerts |
-| Payments | Razorpay + Stripe | India + International |
-| AI | Claude claude-sonnet-4-6 via @anthropic-ai/sdk | Server-side only, streaming where needed |
-| Infra | AWS EKS + RDS + S3 + CloudFront + MSK | Terraform IaC |
-| CI/CD | GitHub Actions + EAS Build + EAS Submit | Lint, type-check, test gates on every PR |
+| Layer | Current Choice | Notes |
+|-------|---------------|-------|
+| Framework | NestJS 10.4 (TypeScript) | ✅ |
+| ORM | TypeORM | ✅ (not Prisma — use TypeORM consistently) |
+| Database | PostgreSQL 16 | ✅ Docker local, Railway prod |
+| Cache / Sessions | Redis 7 | ✅ |
+| Auth | Custom NestJS service — OTP + JWT | ✅ Deployed & working |
+| WhatsApp/OTP | Twilio WhatsApp API | ✅ 1 verified sender (dev limitation) |
+| SMS (India) | MSG91 | 🔶 Keys in env, not implemented |
+| Email | SendGrid | 🔶 Keys in env, not implemented |
+| Push | Firebase FCM | 🔶 Keys in env, not wired |
+| File storage | AWS S3 (`ap-south-1`, bucket: `schoolos-files`) | 🔶 Keys configured, no service built |
+| CDN | AWS CloudFront | 🔶 Domain configured, not active |
+| Payments | Razorpay (India) + Stripe (international) | 🔶 Keys configured, no routes built |
+| AI | Anthropic Claude (claude-sonnet-4-6) | 🔶 Key configured, `ai` service scaffolded |
+| API docs | Swagger/OpenAPI (auto, disabled in prod) | ✅ |
+| Hosting | Railway.app | ✅ `auth` service live |
+| Events/Queue | Redis only (no BullMQ yet) | ⬜ Future: BullMQ for async jobs |
+| Real-time | — | ⬜ Future: Socket.io WebSocket |
+| Monitoring | Sentry | 🔶 DSN configured, not instrumented |
+| Analytics | Amplitude | 🔶 Key configured, not wired |
+
+**Legend:** ✅ Working | 🔶 Configured/scaffolded, not implemented | ⬜ Future, don't build yet
 
 ---
 
@@ -126,117 +182,87 @@ The original design had three separate apps (Parent App, Teacher App, Admin Web)
 ```
 SchoolOS/
 ├── apps/
-│   ├── mobile/                     # Single Expo app (Parent + Teacher + Admin roles)
+│   ├── mobile/                     ✅ Expo app — single app, all roles
 │   │   ├── app/
-│   │   │   ├── (auth)/             # Login, OTP, forgot password
-│   │   │   ├── (parent)/           # Parent tab group
-│   │   │   │   ├── _layout.tsx     # Parent tab bar
-│   │   │   │   ├── index.tsx       # Dashboard
-│   │   │   │   ├── attendance.tsx
-│   │   │   │   ├── academics.tsx
-│   │   │   │   ├── fees.tsx
-│   │   │   │   ├── messages.tsx
-│   │   │   │   └── more.tsx
-│   │   │   ├── (teacher)/          # Teacher tab group
-│   │   │   │   ├── _layout.tsx
-│   │   │   │   ├── index.tsx       # Dashboard
-│   │   │   │   ├── attendance.tsx
-│   │   │   │   ├── classes.tsx
-│   │   │   │   ├── assignments.tsx
-│   │   │   │   ├── grades.tsx
-│   │   │   │   └── messages.tsx
-│   │   │   ├── (school-admin)/     # School admin mobile tab group
-│   │   │   │   ├── _layout.tsx
-│   │   │   │   ├── index.tsx       # Quick stats dashboard
-│   │   │   │   ├── attendance.tsx
-│   │   │   │   ├── fees.tsx
-│   │   │   │   └── announcements.tsx
-│   │   │   ├── _layout.tsx         # Root layout: auth guard, role router
-│   │   │   └── +not-found.tsx
-│   │   ├── components/             # App-level shared components
-│   │   ├── hooks/                  # App-specific hooks
-│   │   ├── store/                  # Zustand slices
-│   │   ├── app.json
-│   │   └── eas.json
+│   │   │   ├── (auth)/             ✅ Login, OTP screens
+│   │   │   ├── (parent)/           🔶 Layout exists, screens stub
+│   │   │   ├── (teacher)/          🔶 Layout exists, screens stub
+│   │   │   ├── (admin)/            🔶 Layout exists, screens stub
+│   │   │   └── _layout.tsx         ✅ Root layout, auth guard, role router
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   ├── store/                  ✅ Zustand slices
+│   │   ├── app.json                ✅ Expo config (EAS project linked)
+│   │   └── eas.json                ✅ Build profiles: dev, staging, prod
 │   │
-│   └── admin/                      # React SPA — School Admin Web Portal
-│       ├── src/
-│       │   ├── pages/              # Route-level components
-│       │   ├── components/         # Admin-specific components
-│       │   ├── layouts/
-│       │   └── store/
+│   └── admin/                      🔶 React SPA — pages scaffolded, no backend wired
+│       ├── src/pages/              (Dashboard, Students, Teachers, Attendance,
+│       │                            Timetable, Finance, Communication, Settings)
 │       └── vite.config.ts
 │
 ├── packages/
-│   ├── ui/                         # Shared component library
-│   │   └── src/components/         # Button, Card, Input, Badge, Modal, Avatar, etc.
-│   ├── api/                        # API client + React Query hooks
-│   │   ├── src/client.ts           # Axios instance with auth interceptors
-│   │   ├── src/hooks/              # useAttendance, useFees, useGrades, useMessages…
-│   │   └── src/mutations/          # React Query mutation hooks
-│   ├── types/                      # Shared TypeScript + Zod schemas
-│   │   ├── src/entities/           # Student, Teacher, Parent, Fee, Grade…
-│   │   ├── src/api/                # Request/response types
-│   │   └── src/zod/                # Zod schemas (shared with backend DTOs)
-│   ├── utils/                      # Shared helpers
-│   │   ├── src/date.ts             # dayjs wrappers, timezone
-│   │   ├── src/currency.ts         # INR/USD formatting
-│   │   └── src/validation.ts       # Phone, email, file validators
-│   └── config/                     # Theme tokens, constants, env schema
+│   ├── ui/                         🔶 Component library (peer deps configured)
+│   ├── api/                        ✅ Axios client + token refresh interceptor
+│   ├── types/                      ✅ TypeScript types + Zod schemas for all entities
+│   ├── utils/                      ✅ Shared helpers (date, currency, validation)
+│   └── config/                     ✅ Zod-validated env schema, constants
 │
 ├── backend/
 │   ├── services/
-│   │   ├── auth/                   # OTP, JWT, SSO, refresh tokens
-│   │   ├── student/                # SIS: enrollment, profiles, guardians
-│   │   ├── attendance/             # Marking, reports, leave workflow
-│   │   ├── academic/               # Assignments, grades, gradebook, lesson plans
-│   │   ├── finance/                # Fee structures, payments, receipts
-│   │   ├── notification/           # FCM, MSG91, SendGrid dispatcher
-│   │   ├── communication/          # Messaging, announcements, circulars
-│   │   ├── timetable/              # Schedule builder, substitutions
-│   │   ├── reporting/              # PDF generation, report cards, analytics
-│   │   ├── transport/              # Bus routes, GPS tracking, geofencing
-│   │   ├── admissions/             # Application forms, pipeline, offers [P2]
-│   │   └── ai/                     # Claude API integration, all AI features
-│   ├── libs/                       # Shared guards, decorators, interceptors
-│   └── migrations/                 # Per-tenant schema migrations
+│   │   ├── auth/                   ✅ DEPLOYED on Railway — OTP, JWT, sessions
+│   │   ├── student/                🔶 Scaffolded — no routes yet
+│   │   ├── attendance/             🔶 Scaffolded — no routes yet
+│   │   ├── academic/               🔶 Scaffolded — no routes yet
+│   │   ├── finance/                🔶 Scaffolded — no routes yet
+│   │   ├── notification/           🔶 Scaffolded — no routes yet
+│   │   ├── communication/          🔶 Scaffolded — no routes yet
+│   │   ├── timetable/              🔶 Scaffolded — no routes yet
+│   │   ├── reporting/              🔶 Scaffolded — no routes yet
+│   │   └── ai/                     🔶 Scaffolded — no routes yet
+│   ├── libs/                       ✅ Shared guards, filters, interceptors
+│   └── migrations/                 🔶 Only auth tables migrated
 │
-├── infra/                          # Terraform (EKS, RDS, S3, CloudFront)
-├── .github/workflows/              # GitHub Actions CI/CD
-├── turbo.json
-└── pnpm-workspace.yaml
+├── infra/                          ⬜ Terraform (future AWS)
+├── .github/workflows/              ✅ GitHub Actions CI
+├── docker-compose.yml              ✅ Local dev: Postgres 16 + Redis 7 + pgAdmin
+├── turbo.json                      ✅ Turborepo task graph
+└── pnpm-workspace.yaml             ✅
 ```
 
 ---
 
 ## 4. User Roles & Role Switching
 
-### Roles in the System
+### Roles in System
 
-| Role | Mobile App | Web Admin | Description |
-|------|-----------|-----------|-------------|
-| `parent` | Yes | No | Views child's data only |
-| `teacher` | Yes | No | Manages assigned classes |
-| `school_admin` | Yes (limited) | Yes (full) | Full school management |
-| `super_admin` | No | Internal tool | Platform-level (Saas ops) |
+| Role | Code | Mobile | Admin Web | Status |
+|------|------|--------|-----------|--------|
+| Parent | `PARENT` | Full access | No | 🔶 Layout exists |
+| Class Teacher | `CLASS_TEACHER` | Full access | No | 🔶 Layout exists |
+| Subject Teacher | `SUBJECT_TEACHER` | Limited | No | 🔶 Layout exists |
+| School Admin | `SCHOOL_ADMIN` | Quick view | Full access | 🔶 Layout exists |
+| Academic Coordinator | `ACADEMIC_COORD` | Limited | Partial | ⬜ Future |
+| Super Admin | `SUPER_ADMIN` | No | Internal tool | ⬜ Future |
 
 ### Role-Based Routing (Mobile)
-```
-JWT login response → { role, permissions, schoolId, userId }
-     ↓
-_layout.tsx reads role from auth store
-     ↓
-Redirect to:
-  role === 'parent'       → /(parent)/
-  role === 'teacher'      → /(teacher)/
-  role === 'school_admin' → /(school-admin)/
+```typescript
+// _layout.tsx
+const { role } = useAuthStore();
+
+if (!isLoggedIn) return <Redirect href="/(auth)/login" />;
+
+switch (role) {
+  case 'PARENT':        return <Redirect href="/(parent)/" />;
+  case 'CLASS_TEACHER':
+  case 'SUBJECT_TEACHER': return <Redirect href="/(teacher)/" />;
+  case 'SCHOOL_ADMIN':  return <Redirect href="/(admin)/" />;
+}
 ```
 
-### Multi-Role Users
-- A person can be both a teacher AND a parent (e.g., teacher whose child attends the same school)
-- Profile screen shows **"Switch Role"** if user has multiple roles
-- Role switch re-renders the tab bar without re-login
-- Each role has its own Zustand slice and cached query namespace
+### Multi-Role
+- User entity has `roles: Role[]` array
+- If user has multiple roles → show role picker on login or in profile settings
+- Each role renders its own tab bar and screen set
 
 ---
 
@@ -244,87 +270,120 @@ Redirect to:
 
 ### 5.1 Auth & Onboarding
 
-**Priority:** P0 — Build first, everything depends on it.
+**Priority:** P0 — ✅ Auth service deployed. OTP working via Twilio WhatsApp.
 
-#### Screens
-- Splash / App Load (check stored JWT, route to correct home)
-- Phone Number Entry
-- OTP Verify (6-digit, 5-min validity, 30-sec resend, max 5 attempts)
-- Google / Microsoft SSO (OAuth 2.0 PKCE flow via expo-auth-session)
-- First-Time Profile Setup (name, photo, language preference)
-- Role Switcher (if multi-role)
-- Logout + Token Revocation
+#### What's Working Now
+- `POST /api/v1/auth/otp/send` — generates OTP, sends via Twilio WhatsApp
+- `POST /api/v1/auth/otp/verify` — verifies OTP, creates user + session, returns JWT
+- `POST /api/v1/auth/refresh` — silent token refresh (interceptor in `@schoolos/api`)
+- `POST /api/v1/auth/logout` — revokes session
+- OTP stored in Redis, 5-min TTL, max 5 attempts
+- Biometric auth (Face ID / Fingerprint) via expo-local-authentication on mobile
 
-#### Backend (auth service)
-- `POST /auth/otp/send` — MSG91 DLT-registered OTP
-- `POST /auth/otp/verify` — returns `{ accessToken, refreshToken, role, permissions }`
-- `POST /auth/refresh` — silent token refresh
-- `POST /auth/sso/google` — OIDC code exchange
-- `POST /auth/sso/microsoft`
-- `POST /auth/logout` — revoke refresh token
-- JWT: 15-min access token, 30-day refresh token, stored in expo-secure-store
-- RBAC guard on every protected route (NestJS `@Roles()` decorator)
+#### What to Build Next
+- Mobile: wire up login screens to the working API (screens exist, API calls need to be added)
+- Mobile: first-time profile setup screen (name, photo, language preference)
+- Mobile: role switcher screen (when user has multiple roles)
+- Backend: `PATCH /api/v1/auth/profile` — update name, photo
+- Backend: `POST /api/v1/auth/sso/google` — Google SSO ⬜ Future
+
+#### Twilio WhatsApp Limitation
+- **Dev/testing:** Only pre-verified phone numbers can receive WhatsApp messages on a Twilio trial account
+- **Workaround:** OTP is logged to server console in `APP_ENV=development` — read it from Railway logs
+- **Production path:** Apply for WhatsApp Business API approval or switch to MSG91 SMS
+
+#### Backend (auth service — already exists)
+```
+POST   /api/v1/auth/otp/send       Send OTP
+POST   /api/v1/auth/otp/verify     Verify OTP → JWT
+POST   /api/v1/auth/refresh        Refresh access token
+POST   /api/v1/auth/logout         Revoke session
+GET    /api/v1/auth/me             Get current user
+GET    /api/v1/health              Health check
+```
 
 ---
 
 ### 5.2 Dashboard (Role-Aware Home)
 
-**Priority:** P0
+**Priority:** P0 — Build after each service's first endpoints are up.
 
-#### Parent Dashboard
-Cards shown:
-1. **Attendance Today** — Present / Absent / Not marked yet
-2. **Next Class** — Subject, teacher, time
-3. **Pending Homework** — Count of unsubmitted assignments
-4. **Recent Grade** — Last graded assessment
-5. **Fee Alert** — Overdue amount (red) or next due date
+#### Parent Dashboard — 5 Cards
+1. Attendance Today (present / absent / not marked)
+2. Next Class (subject, teacher, time)
+3. Pending Homework (count)
+4. Recent Grade (last graded assessment)
+5. Fee Alert (overdue amount or next due date)
 
-#### Teacher Dashboard
-Cards shown:
-1. **Today's Classes** — Period-by-period schedule
-2. **Attendance Status** — Which classes marked / pending
-3. **Pending Submissions** — Assignments awaiting grading
-4. **Unread Parent Messages**
-5. **Upcoming Events** — Exams, PTM, school events
+#### Teacher Dashboard — 5 Cards
+1. Today's Classes (period schedule)
+2. Attendance Status (which classes marked / pending)
+3. Pending Submissions (awaiting grading)
+4. Unread Parent Messages
+5. Upcoming Events (exams, PTM)
 
-#### School Admin Dashboard (Mobile — read-only quick view)
-Cards shown:
-1. **Today's Attendance %** — School-wide, live
-2. **Fee Collection Today** — Amount collected
-3. **Pending Approvals** — Leave requests, lesson plans
-4. **Recent Announcements** — Last sent
+#### School Admin Dashboard (Mobile — read-only)
+1. Today's Attendance % (school-wide)
+2. Fee Collection Today
+3. Pending Approvals (leave requests)
+4. Recent Announcements
+
+**Implementation note:** Dashboard queries multiple services. Build it incrementally — start with static/mock data, replace each card with real API calls as services are built.
 
 ---
 
 ### 5.3 Student Information System (SIS)
 
-**Priority:** P0 (enrollment + profile) | P1 (transfers) | P2 (health, IEP) | P3 (alumni)
+**Priority:** P0 (enrollment, profile) | P1 (transfers) | P2 (health, IEP)
 
-#### Data Captured per Student
-- Basic: Full name, date of birth, gender, photo, student ID (auto-generated: `{YEAR}{GRADE}{SEQUENCE}`)
-- Academic: Grade, section, roll number, admission date
-- Contact: Address, emergency contacts
-- Guardian linkage: Up to 4 guardians per student (name, relationship, phone, email, govt ID encrypted at rest)
-- Health: Blood group, allergies, medical conditions, IEP flag [P2]
-- Documents: Aadhaar, birth certificate, transfer certificate (S3 stored, pre-signed URL)
+#### Data per Student
+```
+Basic:     name, DOB, gender, photo, student code (auto: 2025-6-001)
+Academic:  gradeId, sectionId, rollNumber, admissionDate, status
+Contact:   address, emergency contacts
+Guardians: up to 4 (name, relationship, phone, email)
+Health:    blood group, allergies, IEP flag [P2]
+Docs:      stored in S3 [when S3 is built]
+```
 
-#### Admin Web Portal — SIS Features
-- Individual student enrollment form
-- Bulk CSV import (template provided, duplicate detection by phone/email)
-- Student list with filter by grade/section/status
-- Student profile edit
-- Promote students to next grade (end-of-year batch action)
-- Transfer & withdrawal management [P1]
-- Alumni record (read-only post-withdrawal) [P3]
+#### Admin Web — Build Order
+1. School setup: grades + sections + subjects (needed before students can be enrolled)
+2. Individual student enrollment form
+3. Bulk CSV import (template: name, DOB, grade, section, guardian phone)
+4. Student list with grade/section filter
+5. Student profile edit
+6. Guardian linkage (link parent phone → creates User + PARENT role)
+7. Student promote to next grade (end-of-year batch)
 
-#### Teacher Mobile — Student Access
-- View student list for assigned class
+#### Mobile (Parent)
+- Multi-child switcher: persistent dropdown, stores last-selected `childId` in Zustand
+- Child profile: read-only view
+
+#### Mobile (Teacher)
+- Class roster: list of students in assigned class
 - Student profile: photo, name, attendance %, grades, IEP flag (read-only)
-- Click-to-call / click-to-WhatsApp parent
+- Tap to call / WhatsApp parent
 
-#### Parent Mobile — Child Profile
-- View own child's profile (read-only)
-- Multi-child switcher: persistent header dropdown, remembers last selected child
+#### Backend (student service — scaffolded, needs routes)
+```
+POST   /api/v1/schools              Create school (super admin)
+GET    /api/v1/schools/:id          Get school
+PATCH  /api/v1/schools/:id          Update school profile
+
+POST   /api/v1/grades               Create grade
+GET    /api/v1/grades               List grades (with sections)
+POST   /api/v1/sections             Create section
+
+POST   /api/v1/students             Enroll student
+GET    /api/v1/students             List (filter: gradeId, sectionId, status)
+GET    /api/v1/students/:id         Student profile
+PATCH  /api/v1/students/:id         Update student
+POST   /api/v1/students/bulk        CSV bulk import
+POST   /api/v1/students/:id/promote Promote to next grade
+
+POST   /api/v1/guardians            Link guardian to student
+GET    /api/v1/guardians/me/children My children (for parent role)
+```
 
 ---
 
@@ -332,95 +391,90 @@ Cards shown:
 
 **Priority:** P0
 
-#### Teacher — Marking Flow
-1. Open class from timetable or "Mark Attendance" quick action
-2. Class roster loads with last status pre-filled
-3. **One-tap toggle:** Present (green) / Absent (red) / Late (orange)
-4. **"Mark All Present"** baseline button — mark everyone, then tap exceptions
-5. Submit (locked after EOD; edits require reason + audit trail)
-6. Offline: marks saved to SQLite, synced on reconnect; server-wins conflict resolution
+#### Teacher — Mark Attendance Flow
+1. Select class from today's timetable (or quick action)
+2. Roster loads with previous status pre-filled
+3. One-tap toggle: Present / Absent / Late
+4. "Mark All Present" button → tap exceptions
+5. Submit → locked after EOD; edits require reason + audit log
+6. **Offline:** save to SQLite → auto-sync when online; server-wins on conflict
 
 #### Rules
-- Cut-off: Attendance editable until 11:59 PM on the same day
-- Late edits: after EOD require a reason, stored in `attendance_audit_log`
-- Leave-approved students show as "On Leave" (not Absent) — auto-populated
+- Editable until 11:59 PM same day
+- Late edits: reason required, stored in `attendance_audit_log`
+- Leave-approved students auto-show as "On Leave" (not Absent)
 
 #### Parent — Attendance View
-- Monthly calendar (color-coded: green=present, red=absent, orange=late, grey=holiday)
-- Attendance % with warning if below school threshold (e.g., 75%)
-- Absence push notification arrives within 5 min of teacher submission
-- Leave request submission (date range, reason, supporting doc upload)
+- Monthly calendar: green=present, red=absent, orange=late, grey=holiday
+- Attendance % with threshold warning (e.g., below 75%)
+- Absence push notification within 5 min of teacher submission *(when FCM is wired)*
+- Leave request: date range, reason, doc upload
 
-#### Admin Web Portal — Attendance
-- School-wide live attendance dashboard (WebSocket, auto-refreshes)
-- Class-level drill-down
-- Leave request approval workflow (approve / reject with reason)
-- Daily / weekly / monthly attendance reports (downloadable CSV + PDF)
-- Chronic absence alert (configurable threshold: e.g., <80% triggers flag)
-- Staff attendance tracking [P2]
-- Attendance policy configuration (minimum %, working days) [P2]
+#### Admin Web
+- Live attendance dashboard (school-wide %) — start with polling, add WebSocket later
+- Class drill-down
+- Leave request approval (approve / reject with reason)
+- Daily/weekly/monthly reports (CSV + PDF)
+- Chronic absence alerts (configurable threshold)
 
-#### Backend (attendance service)
-- `POST /attendance` — bulk mark (classId, date, records[])
-- `GET /attendance/:classId/:date` — get marks for a class
-- `GET /attendance/student/:studentId` — student's attendance history
-- `GET /attendance/school/live` — WebSocket channel
-- `PATCH /attendance/:id` — edit with reason (audit logged)
-- `POST /attendance/leave` — leave request
-- `PATCH /attendance/leave/:id` — approve/reject
-- `GET /attendance/reports` — aggregated reports with filters
+#### Backend (attendance service — scaffolded, needs routes)
+```
+POST   /api/v1/attendance                 Mark attendance (bulk)
+GET    /api/v1/attendance/:classId/:date  Get class attendance for date
+GET    /api/v1/attendance/student/:id     Student's attendance history
+PATCH  /api/v1/attendance/:id            Edit with reason (audit logged)
+GET    /api/v1/attendance/school/summary  School-wide summary (live)
+POST   /api/v1/attendance/leave          Submit leave request
+PATCH  /api/v1/attendance/leave/:id      Approve / reject
+GET    /api/v1/attendance/reports        Filtered reports
+```
 
 ---
 
 ### 5.5 Academic — Assignments & Grades
 
-**Priority:** P0 (assignments, grades) | P1 (gradebook) | P2 (lesson plans, AI feedback)
+**Priority:** P0 (assignments, grades) | P1 (gradebook) | P2 (lesson plans, AI)
 
 #### Teacher — Assignments
-- Create assignment: title, rich text description, due date, class targets, file attachments (up to 3 × 10 MB)
-- Supported file types: PDF, DOCX, JPG, PNG, MP4
-- Submission tracker: per-student status (submitted / not submitted / late), timestamp
-- Grade entry: numerical score + text feedback per student
-- Bulk grade entry grid (rows = students, columns = components)
-- **Publish** action: draft → published (parents notified only on publish)
-- AI homework feedback modal: paste student submission text → Claude generates detailed feedback [P2]
+- Create: title, rich text, due date, class targets, file attachments (3 × 10 MB)
+- Submission tracker: per-student status, timestamp
+- Grade entry: score + text feedback per student
+- **Publish** action: draft → published (parents notified)
+- Offline: assignment list cached in SQLite
 
 #### Parent — Assignments
-- Assignment list sorted by due date, grouped by subject
-- Status badges: Pending / Submitted / Graded
-- File attachment download (in-app)
-- Homework acknowledgment: tap "Reviewed" — records `parent_ack_at` timestamp, visible to teacher
-- Grade details: score, feedback, teacher comments
+- List by due date, grouped by subject, status badges
+- File attachment download
+- "Reviewed" acknowledgment (records `parent_ack_at`, visible to teacher)
 
-#### Teacher — Gradebook
-- Marks entry grid: rows = students, columns = assessments
-- Auto-save drafts every 30 seconds
-- Auto-calculate: weighted average, total %, GPA (configurable scheme)
-- Class performance analytics: average, highest, lowest, distribution chart
-- Export gradebook as CSV / PDF
+#### Teacher — Gradebook [P1]
+- Marks entry grid (rows = students, columns = assessments), auto-save every 30s
+- Auto-calculate: weighted average, %, GPA
+- Class analytics: average, min, max, distribution
+- Export: CSV / PDF
 
-#### Parent — Grades
-- Subject gradebook view: assessment components, marks, grade
-- Performance trend line chart: scores over time per subject
-- Term-wise summary
+#### AI Homework Feedback [P2]
+- Teacher pastes student's submission text
+- Claude returns detailed, structured feedback
+- Teacher edits before sending
 
-#### Admin Web Portal — Academic
-- Grading scheme configuration (marks, grades, GPA scale)
-- Assignment overview across school
-- Lesson plan approval workflow (teacher submits → admin approves/revises) [P2]
-- Curriculum planner [P2]
-- AI curriculum planner assistant (Claude-powered topic suggestions, pacing) [P2]
+#### Backend (academic service — scaffolded, needs routes)
+```
+POST   /api/v1/subjects              Create subject
+GET    /api/v1/subjects              List subjects
 
-#### Backend (academic service)
-- `POST /assignments` — create
-- `GET /assignments?classId=&status=` — list
-- `POST /assignments/:id/submissions` — student submit
-- `PATCH /assignments/:id/grades` — bulk grade entry
-- `POST /assignments/:id/publish` — notify parents
-- `GET /gradebook/:classId` — gradebook data
-- `GET /gradebook/student/:studentId` — student's full gradebook
-- `POST /lesson-plans` — teacher submits [P2]
-- `PATCH /lesson-plans/:id/approve` — admin approves [P2]
+POST   /api/v1/assignments           Create assignment
+GET    /api/v1/assignments           List (filter: classId, status, teacherId)
+GET    /api/v1/assignments/:id       Assignment detail
+PATCH  /api/v1/assignments/:id       Update
+POST   /api/v1/assignments/:id/publish  Notify parents
+
+GET    /api/v1/assignments/:id/submissions  Submission list
+POST   /api/v1/assignments/:id/grade        Bulk grade entry
+
+GET    /api/v1/gradebook/:classId    Full gradebook
+GET    /api/v1/gradebook/student/:id Student's grades
+```
 
 ---
 
@@ -428,107 +482,111 @@ Cards shown:
 
 **Priority:** P0 (view) | P1 (builder, substitutions)
 
-#### Teacher Mobile
-- Daily timetable view: period, subject, class, room
-- Weekly view (horizontal scroll)
-- 7-day offline cache (SQLite)
-- Substitute assignment notification (push)
+#### Current Approach
+- Build timetable data manually via admin web first (simple form, no drag-and-drop yet)
+- Drag-and-drop builder is a P1 enhancement
 
-#### Parent Mobile
-- Child's timetable: daily card view, swipe for day navigation
-- School & exam calendar: month view, color-coded event types
-- Exam tab: upcoming exams with subject, date, syllabus
-- Exam schedule PDF export
+#### Teacher Mobile — Views
+- Daily: period, subject, class, room — offline-cached 7 days
+- Weekly: horizontal scroll
 
-#### Admin Web Portal — Timetable Builder [P1]
-- Drag-and-drop timetable grid
-- Conflict detection (teacher double-booked, room clash)
-- Bell schedule configuration (period start/end times)
-- Substitute teacher assignment (quick-assign when teacher on leave)
-- Timetable publish → all affected teachers and parents notified
+#### Parent Mobile — Views
+- Child's daily timetable, swipe navigation
+- School calendar: month view, color-coded events
+- Exam tab with schedule
 
-#### Backend (timetable service)
-- `GET /timetable?classId=&week=` — weekly schedule
-- `GET /timetable/teacher/:teacherId` — teacher's schedule
-- `POST /timetable` — admin creates/updates schedule
-- `POST /timetable/substitute` — assign substitute
-- `GET /calendar?schoolId=&month=` — school events calendar
-- `POST /calendar/events` — admin creates event
+#### Admin Web — Timetable Builder [P1]
+- Grid interface (periods × days × classes)
+- Conflict detection (double-booked teacher/room)
+- Substitute teacher assignment
+- Publish → push notifications to teachers + parents
+
+#### Backend (timetable service — scaffolded, needs routes)
+```
+POST   /api/v1/periods              Define bell schedule
+POST   /api/v1/timetable            Create/update timetable entry
+GET    /api/v1/timetable            Query (classId, teacherId, week)
+POST   /api/v1/timetable/substitute Assign substitute
+
+POST   /api/v1/calendar/events      Create school event
+GET    /api/v1/calendar             Month view (school + exams)
+```
 
 ---
 
 ### 5.7 Fee Management & Payments
 
-**Priority:** P0
+**Priority:** P0 (structure + view) | P0 (online payment — Razorpay)
 
-#### Admin Web Portal — Fee Setup
-- Fee structure per grade: up to 20 fee heads (Tuition, Transport, Activity, etc.)
-- Discount & scholarship management (fixed or % off per fee head)
-- Due date configuration per fee head
-- Late fee rules (% per day or fixed after X days overdue)
-- Online payment gateway config (Razorpay / Stripe API keys, webhook URL)
-- Overdue reminder schedule (auto-send at D-7, D-3, D-day, D+3)
-- Bulk fee posting (generate invoices for all students at term start)
+#### Current State
+Razorpay and Stripe keys are configured in `.env`. No payment routes built yet.
 
-#### Parent Mobile — Fee Flow
-1. Fee schedule: all heads, amounts, due dates
-2. Balance view: paid, outstanding, late fees
-3. Tap "Pay Now" → native Razorpay SDK / Stripe WebView
-4. Payment receipt: in-app PDF, emailed, push notification on success
-5. Fee due date reminder: parent sets X days before → push at 9 AM
-6. Partial payment support (if school enabled)
+#### Admin Web — Setup
+- Fee structure per grade: up to 20 fee heads
+- Discounts / scholarships per student
+- Due dates, late fee rules
+- Bulk fee posting (generate invoices at term start)
+- Manual payment entry (cash, cheque, bank transfer)
 
-#### Admin Web Portal — Collection
-- Live fee collection dashboard: today's total, MTD, YTD
-- Student-level ledger: all transactions
-- Overdue list with filters (grade, amount range)
-- Manual payment entry (cash/cheque/bank transfer)
-- Receipt generation & print
-- Fee reports: collection summary, defaulters list (CSV + PDF)
+#### Parent Mobile — Payment Flow
+1. View fee schedule: heads, amounts, due dates, outstanding
+2. Tap "Pay Now" → Razorpay React Native SDK
+3. On success: receipt PDF (when S3 is up) + push notification + email
 
-#### Backend (finance service)
-- `GET /fees/structure?gradeId=` — fee schedule for a grade
-- `GET /fees/student/:studentId` — student's ledger
-- `POST /fees/payment/initiate` — create Razorpay/Stripe order
-- `POST /fees/payment/webhook` — Razorpay/Stripe webhook (idempotent)
-- `GET /fees/receipt/:paymentId` — PDF receipt (S3 pre-signed)
-- `GET /fees/reports?type=&from=&to=` — collection reports
-- `POST /fees/reminder` — trigger overdue reminders (BullMQ job)
-- `POST /fees/manual-payment` — admin records offline payment
+#### Admin Web — Collection Dashboard
+- Today's collection, MTD, YTD
+- Student ledger (all transactions)
+- Overdue list (filter by grade, amount)
+- Defaulters report (CSV)
+
+#### Backend (finance service — scaffolded, needs routes)
+```
+POST   /api/v1/fees/structure        Create fee structure for grade
+GET    /api/v1/fees/structure        Get fee structure
+GET    /api/v1/fees/student/:id      Student's ledger
+
+POST   /api/v1/fees/payment/initiate  Create Razorpay order
+POST   /api/v1/fees/payment/webhook   Razorpay webhook (verify signature, idempotent)
+GET    /api/v1/fees/payment/:id       Payment status
+
+POST   /api/v1/fees/manual            Record offline payment (admin)
+GET    /api/v1/fees/reports           Collection summary, defaulters
+```
+
+**Razorpay webhook:** Must verify `x-razorpay-signature` header using HMAC-SHA256 with `RAZORPAY_WEBHOOK_SECRET`.
 
 ---
 
 ### 5.8 Communication & Announcements
 
-**Priority:** P0 (messaging, announcements) | P1 (scheduled sends)
+**Priority:** P0 (messaging, announcements) | P1 (scheduling, read receipts)
 
 #### Direct Messaging (Teacher ↔ Parent)
-- Thread-based (one thread per teacher-parent pair per student)
+- Thread-based: one thread per teacher–parent pair per student
 - Parent can only message their child's teachers
-- Teacher can message any parent of their class students
-- Read receipts: sent → delivered → read ticks
-- File attachments (images, PDFs up to 5 MB)
-- Push notification on new message
-- No parent-to-parent or teacher-to-teacher messaging (keep it focused)
+- Read receipts: sent → delivered → read
+- File attachments (images, PDFs up to 5 MB) — needs S3
 
-#### Announcements (School / Class / Individual)
-- Admin: send to School / Grade / Section / Individual targets
-- Teacher: send to own class parents only
-- Scheduled announcements (up to 180 days ahead)
-- Pinned announcements (stay at top of announcement center)
-- Circular acknowledgment: parent taps "Acknowledged" → timestamp logged, admin sees completion rate
-- Emergency alert: overrides notification preferences, SMS fallback via MSG91
-- Announcement center: chronological list, unread badge, search
+#### Announcements
+- Admin: target School / Grade / Section / Individual
+- Teacher: target own class parents only
+- Scheduled sends (store in DB, cron fires at scheduled time) [P1]
+- Pinned announcements
+- Emergency alert: overrides preferences, SMS fallback via Twilio
+- Circular acknowledgment (parent taps "Acknowledged" → timestamp logged)
 
-#### Backend (communication service)
-- `GET /messages/threads` — list all threads for user
-- `GET /messages/threads/:threadId` — thread messages
-- `POST /messages` — send message
-- `PATCH /messages/:id/read` — mark read
-- `POST /announcements` — create (with scheduling)
-- `GET /announcements?target=&page=` — paginated list
-- `PATCH /announcements/:id/acknowledge` — parent ack
-- `GET /announcements/:id/ack-stats` — admin: who acknowledged
+#### Backend (communication service — scaffolded, needs routes)
+```
+GET    /api/v1/messages/threads        My threads
+GET    /api/v1/messages/threads/:id    Thread messages
+POST   /api/v1/messages                Send message
+PATCH  /api/v1/messages/:id/read       Mark read
+
+POST   /api/v1/announcements           Create (with optional scheduledAt)
+GET    /api/v1/announcements           List (paginated)
+PATCH  /api/v1/announcements/:id/ack   Parent acknowledges
+GET    /api/v1/announcements/:id/stats Admin: ack stats
+```
 
 ---
 
@@ -536,47 +594,53 @@ Cards shown:
 
 **Priority:** P1
 
-#### Admin Web Portal
-- Report card template builder (drag fields: student name, grade, marks, attendance %, teacher comment, principal sign)
-- Term-wise report generation: bulk generate PDF for all students in a grade
-- Customize header (school logo, name, academic year)
-- Publish report cards → parents notified, PDF available in-app
-- AI Report Card Summarization: Claude generates a 2–3 sentence narrative for each student based on grades and attendance [P2]
+#### Flow
+1. Admin configures report card template (fields, layout, school branding)
+2. Admin triggers bulk generation → background job creates PDFs (needs BullMQ or simple sync for small schools)
+3. Admin publishes → parents notified → PDF available in app
+4. For early phase: generate on-demand per student (no background queue needed)
 
-#### Parent Mobile
-- In-app report card viewer (PDF rendered via react-native-pdf)
-- Download as PDF
-- Push notification when report card published
+#### AI Summary [P2]
+- Input: student's marks + attendance data
+- Claude generates 2–3 sentence narrative per student
+- Admin reviews + edits before printing
 
-#### Backend (reporting service)
-- `POST /report-cards/generate` — bulk PDF generation (BullMQ, background job)
-- `GET /report-cards/:studentId/:termId` — student's report card (S3 pre-signed URL)
-- `POST /report-cards/publish` — notify parents
-- `POST /report-cards/ai-summary` — Claude generates narrative summaries [P2]
+#### Backend (reporting service — scaffolded, needs routes)
+```
+POST   /api/v1/report-cards/template   Save template
+POST   /api/v1/report-cards/generate   Generate (studentId or bulk by classId)
+GET    /api/v1/report-cards/:studentId/:termId  Get report card PDF URL
+POST   /api/v1/report-cards/publish    Notify parents
+POST   /api/v1/report-cards/ai-summary [P2]
+```
 
 ---
 
 ### 5.10 AI Features
 
-All AI calls are server-side only (Claude API key never on client). Streaming where UX benefits.
+**All AI calls: server-side only.** API key is in backend `.env` only — never expose to client.
 
-| Feature | Role | Priority | Description |
-|---------|------|----------|-------------|
-| **AI Homework Feedback** | Teacher | P2 | Teacher pastes student's submission text → Claude returns detailed, constructive feedback the teacher can send as-is or edit |
-| **AI Report Card Summaries** | Admin / Teacher | P2 | Given marks + attendance data → Claude writes a 2–3 sentence narrative per student for bulk report card generation |
-| **AI Parent Communication Templates** | Teacher | P2 | Teacher selects context (absence follow-up, performance concern, appreciation) → Claude drafts a professional message template |
-| **AI Curriculum Planner** | Admin / Teacher | P2 | Given subject, grade, term dates → Claude suggests topic sequence, pacing, resources |
-| **AI Attendance Pattern Analysis** | Admin | P2 | Given 30-day attendance data → Claude identifies at-risk students, chronic absence patterns, anomalies with recommendations |
-| **AI Predictive Analytics** | Admin | P3 | Broader academic performance prediction, fee default likelihood scoring, enrollment trend analysis |
+Current state: `ai` service is scaffolded, Anthropic key configured, no endpoints yet.
 
-#### Backend (ai service)
-- `POST /ai/homework-feedback` — `{ submissionText, assignmentContext }` → streamed Claude response
-- `POST /ai/report-summary` — `{ studentId, termId }` → generated narrative
-- `POST /ai/message-template` — `{ context, studentId }` → draft message
-- `POST /ai/curriculum-plan` — `{ subject, grade, termDates }` → plan
-- `POST /ai/attendance-analysis` — `{ classId, period }` → insights
+| # | Feature | Who | Priority | Description |
+|---|---------|-----|----------|-------------|
+| 1 | **Homework Feedback** | Teacher | P2 | Paste student text → Claude returns detailed feedback |
+| 2 | **Report Card Summaries** | Admin/Teacher | P2 | Marks + attendance → 2-3 sentence narrative per student |
+| 3 | **Parent Message Templates** | Teacher | P2 | Context (absence, concern, praise) → draft message |
+| 4 | **Curriculum Planner** | Admin/Teacher | P2 | Subject + grade + dates → topic sequence + pacing |
+| 5 | **Attendance Pattern Analysis** | Admin | P2 | 30-day data → at-risk students, chronic absence flags |
+| 6 | **Predictive Analytics** | Admin | P3 | Performance + fee default scoring |
 
-All endpoints: rate-limited (10 req/min/school), cost tracked per school (for future billing).
+#### Backend (ai service — scaffolded, needs routes)
+```
+POST   /api/v1/ai/homework-feedback    { submissionText, context } → streamed response
+POST   /api/v1/ai/report-summary       { studentId, termId } → narrative
+POST   /api/v1/ai/message-template     { context, studentId } → draft
+POST   /api/v1/ai/curriculum-plan      { subject, grade, termDates } → plan
+POST   /api/v1/ai/attendance-analysis  { classId, days } → insights
+```
+
+Rate limit: 10 req/min per school. Use Claude `claude-sonnet-4-6`.
 
 ---
 
@@ -585,23 +649,16 @@ All endpoints: rate-limited (10 req/min/school), cost tracked per school (for fu
 **Priority:** P2
 
 #### Parent Mobile
-- Live bus location map (30-second GPS updates via WebSocket)
-- Bus arrival push notification (500m geofence: "Bus is 5 min away")
-- Pick-up / drop-off confirmation (driver marks boarded / alighted)
-- Student's assigned bus route and stop
+- Live bus location map (react-native-maps already installed)
+- Bus arrival push notification (500m geofence)
+- Pick-up / drop-off confirmation
 
-#### Admin Web Portal
-- Bus route management: define routes, stops, assigned students
-- Driver management: phone, license, vehicle number
-- Live fleet map (all buses)
-- Trip history
+#### Admin Web
+- Route & stop management
+- Driver management
+- Live fleet map
 
-#### Backend (transport service)
-- `GET /transport/routes` — all routes for school
-- `GET /transport/student/:studentId/route` — student's route
-- `POST /transport/location` — driver app posts GPS coordinates
-- WebSocket `/transport/bus/:busId/location` — live stream to parents
-- `PATCH /transport/trips/:tripId/boarding` — mark student boarded
+**Note:** Requires real-time GPS updates from a driver-side interface (could be a simple web page or extend the mobile app with a driver role).
 
 ---
 
@@ -609,110 +666,66 @@ All endpoints: rate-limited (10 req/min/school), cost tracked per school (for fu
 
 **Priority:** P1
 
-#### Parent Mobile
-- View available PTM slots per teacher
-- One-tap slot booking
-- Cancel / reschedule
-- Reminders: push 24hr before + 1hr before
-- Post-meeting notes (if admin enables visibility)
-
-#### Teacher Mobile
-- Set available time slots for PTM
-- View booked appointments
-- Mark meeting complete + add notes
-
-#### Admin Web Portal
-- Schedule PTM event (date range, per-teacher slot duration)
-- Override / manage bookings
-- Completion stats (how many parents attended)
-
-#### Backend (timetable/communication service)
-- `GET /ptm/slots/:teacherId` — available slots
-- `POST /ptm/book` — parent books a slot
-- `DELETE /ptm/book/:id` — cancel
-- `PATCH /ptm/complete` — teacher marks done + adds notes
+- Teacher sets available slots
+- Parent books one-tap
+- Reminders: 24hr + 1hr before
+- Teacher marks complete + adds notes (optional visibility to parent)
 
 ---
 
 ### 5.13 Notifications
 
-**Priority:** P0
+**Priority:** P0 (infrastructure) | P0 (absence alert) | P1 (all other types)
 
-#### Notification Categories
+#### Current State
+Firebase FCM keys are configured. Expo Notifications is installed. **Not wired up yet.**
 
-| Category | Opt-Out Allowed | Channels |
-|----------|----------------|---------|
-| Emergency Alert | No | Push + SMS |
-| Absence Alert | No | Push |
-| Fee Due | Yes | Push + SMS |
-| New Grade Published | Yes | Push |
-| New Message | Yes | Push |
-| Announcement | Yes | Push |
-| Assignment Posted | Yes | Push |
-| Report Card Ready | Yes | Push |
-| Bus Alert | Yes | Push |
-| PTM Reminder | Yes | Push |
+#### What to Build
+1. **Backend:** `notification` service — send FCM push via Firebase Admin SDK
+2. **Mobile:** Register FCM token on login → `PATCH /api/v1/auth/fcm-token`
+3. **Trigger points:** wire up each event (attendance marked → notify parent)
 
-#### Parent Mobile
-- 90-day notification history (searchable)
-- Per-category preference toggles (except non-opt-outable)
-- Deep links from notification tap (go to relevant screen directly)
+#### Non-Opt-Out (always deliver)
+- Emergency Alert (push + Twilio WhatsApp)
+- Absence Alert (push)
 
-#### Admin Web Portal
-- Notification delivery stats (sent / delivered / opened per announcement)
-- Overdue reminder scheduler
-- Emergency alert broadcast (all-school, immediate)
+#### Opt-Out Allowed
+- Fee Due, New Grade, New Message, Announcement, Assignment, Bus Alert, PTM Reminder
 
-#### Backend (notification service)
-- Unified dispatcher: routes to FCM (Android), APNs (iOS), MSG91 (SMS), SendGrid (email)
-- BullMQ queue: batch notifications dequeued at max 500/sec
-- FCM topic subscriptions: `school-{schoolId}`, `grade-{gradeId}`, `class-{classId}`
-- Delivery tracking: webhook callbacks from FCM/APNs store delivery status
-- Scheduled notifications: stored in DB, cron fires at scheduled time
+#### Future: Topic Subscriptions
+- `school-{schoolId}` topic for school-wide broadcasts (avoids sending 1000 individual pushes)
+- Subscribe/unsubscribe on enrollment/withdrawal
 
 ---
 
 ### 5.14 Documents & Media
 
-**Priority:** P1
+**Priority:** P1 — Depends on S3 being set up first.
+
+#### When S3 is ready
+- Upload pattern: client calls `POST /api/v1/upload/presign` → gets pre-signed S3 URL → uploads directly to S3 → sends S3 key to API
+- S3 path: `{schoolId}/{type}/{entityId}/{uuid}.{ext}`
+- Download: pre-signed URL (24hr expiry) via CloudFront (when active)
 
 #### Parent Mobile
-- Document library: school-issued docs (ID card, bonafide certificate, TC)
-- Download individual documents (pre-signed S3 URL, 24hr expiry)
-- Event photo gallery (school-watermarked, optional download if school permits)
+- Document library: school-issued docs (ID card, bonafide, TC)
+- Event photo gallery
 
-#### Admin Web Portal
-- Upload documents to student profiles
-- Bulk document distribution (upload once, available to all parents in a class)
-- Media gallery management: upload event photos, set download permission
-
-#### Backend
-- All files stored in S3 with path pattern: `{schoolId}/{tenantSchema}/{type}/{entityId}/{filename}`
-- Pre-signed URL generation with 24hr expiry
-- Virus scan on upload (ClamAV via Lambda)
-- Image compression on upload (Sharp)
+#### Before S3 is up
+- Store files as base64 in PostgreSQL (for early testing only, remove before scale)
+- Or use a free Cloudinary account as a bridge
 
 ---
 
 ### 5.15 Admissions
 
-**Priority:** P2 (form + pipeline) | P3 (offers, waitlist)
+**Priority:** P2
 
-#### Admin Web Portal
-- Online application form builder (custom fields drag-and-drop)
-- Public-facing application URL per school
-- Kanban admissions pipeline: Applied → Shortlisted → Assessment → Interview → Offered → Enrolled
-- Bulk status update
-- Offer letter PDF generation from template [P3]
-- Waitlist management [P3]
-- Application analytics (conversion rates per stage)
-
-#### Backend (admissions service)
-- `GET /admissions/form/:schoolId` — public form schema (no auth required)
-- `POST /admissions/apply` — submit application
-- `GET /admissions?stage=&gradeId=` — admin list with filters
-- `PATCH /admissions/:id/stage` — move pipeline stage
-- `POST /admissions/:id/offer` — generate offer letter [P3]
+- Application form builder (admin web)
+- Public application URL (no auth required)
+- Kanban pipeline: Applied → Shortlisted → Assessment → Interview → Offered → Enrolled
+- Offer letter PDF [P3]
+- Waitlist [P3]
 
 ---
 
@@ -720,15 +733,7 @@ All endpoints: rate-limited (10 req/min/school), cost tracked per school (for fu
 
 **Priority:** P2
 
-#### Admin Web Portal
-- Book catalog management (title, author, ISBN, copies, category)
-- Issue / return tracking
-- Fine management (overdue books)
-- Search catalog
-
-#### Teacher / Parent Mobile
-- Search library catalog
-- View issued books and due dates
+- Book catalog, issue/return, fines, search
 
 ---
 
@@ -736,238 +741,352 @@ All endpoints: rate-limited (10 req/min/school), cost tracked per school (for fu
 
 **Priority:** P2
 
-#### Admin Web Portal
-- Survey builder: multiple choice, rating (1–5), open text questions
-- Target: all parents / specific grade / specific class
-- Anonymous by default (toggle per survey)
-- Response analytics dashboard
-- Export responses as CSV
-
-#### Parent Mobile
-- Pending surveys notification
-- Complete survey in-app
-- View own past responses
+- Builder: multiple choice, rating, open text
+- Target by grade/class
+- Anonymous by default
+- Response analytics
 
 ---
 
 ## 6. Web Admin Portal
 
-Full desktop-class School Admin interface. All the above modules have their admin-facing counterparts here. This section covers admin-only configuration features not mentioned above.
+The React SPA at `apps/admin`. Pages are scaffolded (Dashboard, Students, Teachers, Attendance, Timetable, Finance, Communication, Settings). No backend calls wired yet.
 
-### School Setup (P0)
-- School profile: name, logo, timezone, academic calendar
-- Academic year & term configuration (start/end dates, term names)
-- Grade & section hierarchy (up to 15 grades, 26 sections/grade)
-- Subject catalog: subject name, code, type (core/elective)
-- Bell schedule: period name, start time, end time, days applicable
-- Working days & holidays calendar
-- School branding: subdomain prefix, primary/accent colors [P2]
+### Sidebar Navigation (Current + Future)
 
-### Staff Management (P0)
-- Teacher profiles: name, photo, subjects, classes assigned, contact
-- Bulk teacher CSV import
-- Role assignment & RBAC (custom role creation with granular permission toggles) [P1]
-- Account activation / deactivation
-- Staff leave management [P2]
-
-### RBAC System
-- Built-in roles: `school_admin`, `teacher`, `parent`, `accountant`, `reception`
-- Custom role creation: admin picks from ~40 permission keys [P1]
-- Permission keys examples: `attendance.mark`, `fees.view`, `fees.collect`, `grades.publish`, `announcements.send`, `reports.view`, `settings.edit`
-
-### Analytics & Reporting (P1–P2)
-- Custom report builder: choose metrics, filters, date range
-- Scheduled report emails (daily attendance summary, weekly fee collection, monthly analytics)
-- Downloadable formats: CSV, PDF
-- AI Predictive Analytics dashboard [P3]
-
-### Compliance & Security (P2)
-- Audit logs: all actions logged (who, what, when, IP) — read-only view
-- GDPR / India DPDP compliance portal: data export, right-to-erasure request handling
-- Full tenant data export (ZIP of all student data, transaction records)
-- SSO configuration (Google Workspace / Microsoft Azure AD for staff login)
+```
+Dashboard                    ← Connect to real APIs as services are built
+Students
+  ├── All Students
+  ├── Enroll Student
+  ├── Bulk Import
+  └── Promotions
+Teachers / Staff
+  ├── All Staff
+  └── Roles & Permissions
+Attendance
+  ├── Live View
+  ├── Reports
+  └── Leave Requests
+Academics
+  ├── Assignments
+  ├── Gradebook
+  ├── Timetable Builder     [P1]
+  └── Report Cards          [P1]
+Finance
+  ├── Fee Structures
+  ├── Collection Dashboard
+  ├── Payments
+  └── Reports
+Communication
+  ├── Announcements
+  ├── Messages
+  └── Notification Stats
+Transport                    [P2]
+Admissions                   [P2]
+Library                      [P2]
+Surveys                      [P2]
+Settings
+  ├── School Profile
+  ├── Academic Years & Terms
+  ├── Grades & Sections
+  ├── Subjects & Bell Schedule
+  ├── Holidays & Calendar
+  └── Payment Gateway
+AI Analytics                 [P3]
+```
 
 ---
 
 ## 7. Backend Architecture
 
-### Microservices Map
+### Services Map
 
-| Service | Port | Responsibilities |
-|---------|------|-----------------|
-| `auth` | 3001 | OTP, JWT, SSO, refresh, RBAC |
-| `student` | 3002 | SIS, profiles, guardian linkage |
-| `attendance` | 3003 | Marking, reports, leave |
-| `academic` | 3004 | Assignments, grades, gradebook, lesson plans |
-| `finance` | 3005 | Fee structures, payments, receipts |
-| `notification` | 3006 | FCM, APNs, SMS, email dispatcher |
-| `communication` | 3007 | Messaging, announcements, circulars |
-| `timetable` | 3008 | Schedule, calendar, substitutions |
-| `reporting` | 3009 | PDF generation, analytics queries |
-| `transport` | 3010 | Routes, GPS, geofencing |
-| `admissions` | 3011 | Application forms, pipeline [P2] |
-| `ai` | 3012 | Claude API integration, all AI endpoints |
+| Service | Status | Railway Deployed | Key Responsibility |
+|---------|--------|-----------------|-------------------|
+| `auth` | ✅ Working | ✅ Yes | OTP, JWT, sessions, roles |
+| `student` | 🔶 Scaffolded | No | SIS, profiles, guardian linkage |
+| `attendance` | 🔶 Scaffolded | No | Marking, reports, leave |
+| `academic` | 🔶 Scaffolded | No | Assignments, grades, gradebook |
+| `finance` | 🔶 Scaffolded | No | Fees, payments, receipts |
+| `notification` | 🔶 Scaffolded | No | FCM, WhatsApp, email dispatch |
+| `communication` | 🔶 Scaffolded | No | Messaging, announcements |
+| `timetable` | 🔶 Scaffolded | No | Schedule, calendar |
+| `reporting` | 🔶 Scaffolded | No | PDF gen, analytics |
+| `ai` | 🔶 Scaffolded | No | Claude API endpoints |
 
-### API Gateway
-- Single entry point: `api.schoolos.app`
-- Routes requests to services based on path prefix
-- Auth middleware validates JWT on all routes except `/auth/*` and `/admissions/form/*`
-- `X-School-ID` injected from JWT claims
-- Rate limiting: 1000 req/min/school (global), 10 req/min/school for AI endpoints
+### Deploying New Services to Railway
+Each service has its own `railway.toml`. To deploy a new service:
+1. Add routes to the service
+2. Add TypeORM entity + migration
+3. Create a new Railway service pointing to the service directory
+4. Set the same env vars as `auth` service + service-specific ones
+
+### Shared Backend Libraries (`backend/libs/`)
+- Global exception filter (consistent error format)
+- Logging interceptor (request/response logging)
+- JWT auth guard (`@UseGuards(JwtAuthGuard)`)
+- Roles guard (`@Roles('SCHOOL_ADMIN')`)
+- Validation pipe (Zod or class-validator)
 
 ### Database
-- PostgreSQL 15+ on AWS RDS (Multi-AZ)
-- **Schema-per-tenant:** each school has its own PostgreSQL schema (e.g., `school_42.students`)
-- Prisma client instantiated with `schema=school_{id}` at request time
-- Connection pooling: PgBouncer (transaction mode)
-- Read replicas for reporting queries
+- **Local dev:** Docker Compose — `postgresql://postgres:postgres@localhost:5432/schoolos`
+- **Production:** Railway PostgreSQL — connection string in `DATABASE_URL` env
+- **ORM:** TypeORM with `synchronize: true` in dev (auto-creates tables), `synchronize: false` in prod (use migrations)
+- **Existing tables:** `users`, `schools`, `sessions` (from auth service)
+- **Add tables:** Create TypeORM entity → add to service's `entities[]` array → restart in dev (auto-syncs) → write migration for prod
 
-### Queue (BullMQ + Redis)
-- `pdf-generation` queue — report cards, receipts
-- `notification-dispatch` queue — bulk push/SMS sends
-- `ai-processing` queue — async AI jobs
-- `report-email` queue — scheduled report emails
-- Dead letter queue for failed jobs; retry with exponential backoff (3 attempts)
-
-### Real-Time
-- Socket.io on `notification` and `attendance` services
-- Channels: `attendance:live:{schoolId}`, `transport:bus:{busId}`
-- Parents subscribe to their child's bus channel on app open
-
-### Storage
-- AWS S3 bucket per region
-- Path: `s3://schoolos-{region}/{schoolId}/{type}/{entityId}/{uuid}.{ext}`
-- CloudFront CDN in front of S3 for all reads
-- Pre-signed upload URLs (5 min) for direct client-to-S3 uploads
-- Pre-signed download URLs (24 hr) for document access
+### Redis
+- **Local dev:** Docker Compose — `redis://localhost:6379`
+- **Production:** Railway Redis (add Redis plugin to Railway project)
+- **Uses:** OTP storage (5-min TTL), session token hash validation, future: BullMQ queues
 
 ---
 
-## 8. Data Models (Key Entities)
+## 8. Infrastructure & Hosting
+
+### Current Setup
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    CURRENT                          │
+│                                                     │
+│  Mobile App ──────────────────→ Railway.app         │
+│  (Expo, built locally/EAS)     ├── auth service     │
+│                                └── PostgreSQL       │
+│  Admin Web ──────────────────→ localhost:5173        │
+│  (Vite, local only)            └── (not deployed)   │
+│                                                     │
+│  OTP/WhatsApp ───────────────→ Twilio               │
+│  (1 verified sender)           (trial account)      │
+│                                                     │
+│  Mobile Builds ──────────────→ EAS (Expo cloud)     │
+│                                or local build       │
+└─────────────────────────────────────────────────────┘
+```
+
+### Future Setup (don't build infra for this yet — just be aware)
+
+```
+┌─────────────────────────────────────────────────────┐
+│                    FUTURE                           │
+│                                                     │
+│  Mobile App ──────────────────→ AWS EKS             │
+│  Admin Web ───────────────────→ (all 10 services)   │
+│                                └── AWS RDS (PG)     │
+│                                                     │
+│  Files ───────────────────────→ AWS S3 + CloudFront │
+│  Queue ───────────────────────→ BullMQ + Redis      │
+│  Real-time ───────────────────→ Socket.io           │
+│  SMS (India) ─────────────────→ MSG91 (DLT)         │
+│  WhatsApp (scale) ────────────→ WhatsApp Biz API    │
+│  Monitoring ──────────────────→ Sentry + Amplitude  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Railway Deployment (Current)
+
+- **Auth service:** Live at `https://{railway-domain}/api/v1`
+- `railway.toml` at `backend/services/auth/railway.toml`
+- Health check: `GET /api/v1/health`
+- To deploy a new service: add its own `railway.toml`, create Railway service, set env vars
+
+### EAS Build (Mobile)
+
+```json
+// eas.json profiles:
+development  → debug APK/IPA, development server
+staging      → release APK, internal distribution
+production   → AAB (Android) / IPA (iOS), store submission
+```
+
+OTA update channel: `u.expo.dev/e0da3dc6-ba93-492f-b7b2-1e408d205cf4`
+
+Local APK build: `node apps/mobile/scripts/android-local-build.mjs apk`
+
+### Environment Variables (What's needed per service)
+
+**All services need:**
+```env
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+JWT_SECRET=...
+JWT_REFRESH_SECRET=...
+APP_ENV=development|production
+```
+
+**Auth service additionally:**
+```env
+TWILIO_ACCOUNT_SID=...
+TWILIO_AUTH_TOKEN=...
+TWILIO_WHATSAPP_FROM=whatsapp:+1...
+TWILIO_WHATSAPP_CONTENT_SID=...   # approved message template SID
+```
+
+**Finance service (when built):**
+```env
+RAZORPAY_KEY_ID=...
+RAZORPAY_KEY_SECRET=...
+RAZORPAY_WEBHOOK_SECRET=...
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+```
+
+**Notification service (when built):**
+```env
+FIREBASE_PROJECT_ID=...
+FIREBASE_PRIVATE_KEY=...
+FIREBASE_CLIENT_EMAIL=...
+SENDGRID_API_KEY=...
+MSG91_API_KEY=...          # future
+MSG91_SENDER_ID=SCHLOS     # future
+```
+
+**AI service (when built):**
+```env
+ANTHROPIC_API_KEY=...      # NEVER on mobile/client
+```
+
+**File service (when S3 is set up):**
+```env
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_REGION=ap-south-1
+AWS_S3_BUCKET=schoolos-files
+AWS_CLOUDFRONT_DOMAIN=...
+```
+
+---
+
+## 9. Data Models (Key Entities)
+
+These are the TypeORM entities to build (auth entities already exist in `backend/services/auth/`):
 
 ```typescript
-// Core entities — shared in packages/types
+// Already exists in auth service:
+// User, School, Session
 
-interface School {
-  id: string;
-  name: string;
-  subdomain: string;
-  logoUrl: string;
-  timezone: string;
-  currency: 'INR' | 'USD' | 'AED';
-  activeAcademicYearId: string;
-}
-
-interface AcademicYear {
+// Add to student service:
+@Entity('grades')
+class Grade {
   id: string;
   schoolId: string;
-  name: string;           // e.g., "2025-26"
-  startDate: Date;
-  endDate: Date;
-  terms: Term[];
-}
-
-interface Grade {
-  id: string;
-  schoolId: string;
-  name: string;           // e.g., "Grade 6"
+  name: string;           // "Grade 6"
+  order: number;          // for sorting
   sections: Section[];
 }
 
-interface Student {
+@Entity('sections')
+class Section {
+  id: string;
+  gradeId: string;
+  name: string;           // "A", "B"
+}
+
+@Entity('students')
+class Student {
   id: string;
   schoolId: string;
-  studentCode: string;    // Auto-generated: 2025-6-001
+  studentCode: string;    // auto: "2025-6-001"
+  userId?: string;        // if student has their own login [future]
   firstName: string;
   lastName: string;
   dateOfBirth: Date;
   gender: 'M' | 'F' | 'Other';
-  photoUrl: string;
+  photoUrl?: string;
   gradeId: string;
   sectionId: string;
   rollNumber: number;
   admissionDate: Date;
   status: 'active' | 'transferred' | 'withdrawn';
   iepFlag: boolean;
-  guardians: Guardian[];  // up to 4
+  deletedAt?: Date;       // soft delete
 }
 
-interface Guardian {
+@Entity('guardians')
+class Guardian {
   id: string;
   studentId: string;
-  userId: string;         // links to auth user
-  relationship: string;
+  userId: string;         // links to User (with PARENT role)
+  relationship: string;   // "mother", "father", "guardian"
   isPrimary: boolean;
   canPickup: boolean;
 }
 
-interface User {
-  id: string;
-  schoolId: string;
-  phone: string;
-  email?: string;
-  name: string;
-  photoUrl?: string;
-  roles: Role[];
-  preferredLanguage: 'en' | 'hi' | 'ar';
-  fcmToken?: string;
-}
-
-interface AttendanceRecord {
+// Add to attendance service:
+@Entity('attendance_records')
+class AttendanceRecord {
   id: string;
   studentId: string;
-  classId: string;
+  classId: string;        // section in timetable context
   date: Date;
   status: 'present' | 'absent' | 'late' | 'on_leave';
-  markedByTeacherId: string;
+  markedByUserId: string;
   markedAt: Date;
   editedAt?: Date;
   editReason?: string;
 }
 
-interface Assignment {
+@Entity('leave_requests')
+class LeaveRequest {
   id: string;
-  schoolId: string;
-  classId: string;
-  subjectId: string;
-  teacherId: string;
-  title: string;
-  description: string;    // Rich text HTML
-  dueDate: Date;
-  attachments: S3File[];
-  publishedAt?: Date;
-  status: 'draft' | 'published';
+  studentId: string;
+  requestedByUserId: string;
+  fromDate: Date;
+  toDate: Date;
+  reason: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reviewedByUserId?: string;
+  reviewedAt?: Date;
 }
 
-interface Grade_Record {
+// Add to academic service:
+@Entity('assignments')
+class Assignment {
+  id: string;
+  schoolId: string;
+  sectionId: string;
+  subjectId: string;
+  teacherUserId: string;
+  title: string;
+  description: string;    // HTML rich text
+  dueDate: Date;
+  attachmentKeys: string[]; // S3 keys
+  status: 'draft' | 'published';
+  publishedAt?: Date;
+  deletedAt?: Date;
+}
+
+@Entity('grade_records')
+class GradeRecord {
   id: string;
   studentId: string;
   assignmentId: string;
   score: number;
   maxScore: number;
-  feedback: string;
-  gradedByTeacherId: string;
+  feedback?: string;
+  gradedByUserId: string;
   publishedAt?: Date;
+  parentAckAt?: Date;
 }
 
-interface FeeStructure {
+// Add to finance service:
+@Entity('fee_items')
+class FeeItem {
   id: string;
   gradeId: string;
-  academicYearId: string;
-  items: FeeItem[];
-}
-
-interface FeeItem {
-  id: string;
-  name: string;           // "Tuition Fee", "Transport", etc.
-  amount: number;
+  academicYear: string;   // "2025-26"
+  name: string;
+  amount: number;         // in paise (INR) or cents (USD)
+  currency: string;
   dueDate: Date;
   lateFeeType: 'fixed' | 'percentage';
   lateFeeValue: number;
   lateFeeAfterDays: number;
 }
 
-interface Payment {
+@Entity('payments')
+class Payment {
   id: string;
   studentId: string;
   feeItemId: string;
@@ -976,22 +1095,36 @@ interface Payment {
   gatewayOrderId?: string;
   gatewayPaymentId?: string;
   status: 'pending' | 'success' | 'failed' | 'refunded';
-  receiptUrl?: string;
+  receiptKey?: string;    // S3 key
   paidAt?: Date;
+  createdByUserId: string; // for manual payments
 }
 
-interface Message {
+// Add to communication service:
+@Entity('message_threads')
+class MessageThread {
+  id: string;
+  schoolId: string;
+  teacherUserId: string;
+  parentUserId: string;
+  studentId: string;
+  lastMessageAt: Date;
+}
+
+@Entity('messages')
+class Message {
   id: string;
   threadId: string;
-  senderId: string;
+  senderUserId: string;
   content: string;
-  attachments: S3File[];
+  attachmentKeys: string[];
   sentAt: Date;
   deliveredAt?: Date;
   readAt?: Date;
 }
 
-interface Announcement {
+@Entity('announcements')
+class Announcement {
   id: string;
   schoolId: string;
   title: string;
@@ -1003,208 +1136,187 @@ interface Announcement {
   scheduledAt?: Date;
   sentAt?: Date;
   createdByUserId: string;
+  deletedAt?: Date;
 }
 ```
 
 ---
 
-## 9. API Design Conventions
+## 10. API Design Conventions
 
-- **Base URL:** `https://api.schoolos.app/v1`
+- **Base URL:** `https://{railway-domain}/api/v1` (current) → `https://api.schoolos.app/v1` (future)
 - **Auth:** `Authorization: Bearer {accessToken}` on all protected routes
-- **Tenant:** `X-School-ID: {schoolId}` (auto-injected from JWT, but required in header too for proxy routing)
-- **Pagination:** `?page=1&limit=20` → response includes `{ data, total, page, limit, hasNext }`
-- **Errors:** `{ statusCode, message, code, timestamp }` — `code` is machine-readable (e.g., `ATTENDANCE_ALREADY_MARKED`)
-- **Dates:** ISO 8601 UTC strings everywhere
-- **File uploads:** Client gets pre-signed S3 URL via `POST /upload/presign`, uploads directly to S3, then sends S3 key to the relevant API
-- **Soft deletes:** All entities use `deletedAt` (never hard delete student/financial data)
-- **Audit:** Every mutation logs `{ userId, action, entityType, entityId, before, after, ip, timestamp }` to `audit_logs` table
+- **School context:** Injected from JWT claims (`schoolId`) — no need for separate header currently
+- **Pagination:** `?page=1&limit=20` → `{ data: [], total, page, limit, hasNext }`
+- **Error format:** `{ statusCode, message, code, timestamp }` — `code` is machine-readable (e.g., `ATTENDANCE_ALREADY_MARKED`)
+- **Dates:** ISO 8601 UTC strings everywhere (`2025-06-15T09:00:00.000Z`)
+- **Money:** Store in smallest unit (paise for INR, cents for USD) — format on client
+- **File uploads:** `POST /api/v1/upload/presign { filename, mimeType }` → `{ uploadUrl, key }` → client uploads to S3 → sends `key` to API
+- **Soft deletes:** All student/financial data uses `deletedAt` — never hard delete
+- **Audit trail:** Every attendance edit, grade publish, payment records who + when
 
 ---
 
-## 10. Build Phases & Priorities
+## 11. Build Phases & Priorities
 
-### P0 — MVP (Target: 10 schools, weeks 1–12)
-Must work before first school goes live.
+### P0 — MVP (First Working School)
 
-- [ ] Auth (OTP + SSO + JWT + role routing)
-- [ ] Role-aware mobile home screen (all 3 roles)
-- [ ] Student enrollment + parent guardian linkage (admin web)
-- [ ] Teacher: mark attendance (online + offline)
-- [ ] Parent: view attendance + absence push notification
-- [ ] Teacher: create assignment + grade submissions
-- [ ] Parent: view assignments + grades
-- [ ] Admin: fee structure setup + invoice generation
-- [ ] Parent: view fees + online payment (Razorpay)
-- [ ] Admin: announcement broadcast
-- [ ] Teacher ↔ Parent: direct messaging
-- [ ] Push notification delivery (FCM + APNs)
-- [ ] Multi-child switcher
-- [ ] Basic admin web dashboard (attendance %, fee collection today)
+**Goal:** One real school can use the system end-to-end.
 
-### P1 — Growth (Weeks 13–24)
-- [ ] Timetable builder (drag-and-drop, conflict detection)
+- [x] Auth service deployed (OTP + JWT)
+- [x] Mobile app builds (APK working)
+- [ ] Wire mobile auth screens to live API
+- [ ] School setup (grades, sections, subjects) — admin web
+- [ ] Student enrollment + guardian linkage — admin web + backend
+- [ ] Multi-child switcher on mobile (parent)
+- [ ] Teacher: mark attendance (online) — mobile + backend
+- [ ] Parent: view attendance — mobile + backend
+- [ ] Absence push notification — wire FCM
+- [ ] Teacher: create assignment + grade — mobile + backend
+- [ ] Parent: view assignments + grades — mobile
+- [ ] Admin: fee structure setup — admin web + backend
+- [ ] Admin: bulk invoice generation — backend
+- [ ] Parent: view fees — mobile
+- [ ] Parent: pay online (Razorpay) — mobile + backend
+- [ ] Admin: announcement broadcast — admin web + backend
+- [ ] Parent: announcement center — mobile
+- [ ] Teacher ↔ Parent: direct messaging — mobile + backend
+- [ ] Admin web: live attendance dashboard
+- [ ] Admin web: fee collection dashboard
+
+### P1 — Growth (10+ Schools)
+
+- [ ] Timetable builder (admin web, drag-and-drop)
 - [ ] Substitute teacher assignment
-- [ ] Report card template builder + bulk PDF generation
-- [ ] PTM slot booking
-- [ ] Scheduled announcements (up to 180 days)
+- [ ] Report card template builder + PDF generation
+- [ ] PTM slot booking (mobile + admin)
+- [ ] Scheduled announcements
 - [ ] Circular acknowledgment tracking
-- [ ] Custom RBAC roles (admin web)
-- [ ] Custom report builder (admin web)
-- [ ] Leave request workflow (teacher → admin)
-- [ ] Staff management (admin web)
-- [ ] Gradebook full view + CSV export
+- [ ] Leave request workflow (mobile + admin)
+- [ ] Gradebook full view + export
 - [ ] Fee reports (defaulters, collection summary)
-- [ ] Document library (parent mobile)
+- [ ] Document library (when S3 is set up)
+- [ ] Admin web: deploy to Railway/Vercel
 
-### P2 — Scale (Month 7–12)
-- [ ] AI: Homework Feedback
+### P2 — Scale (AI + Transport + Admissions)
+
+- [ ] AI: Homework Feedback (claude-sonnet-4-6)
 - [ ] AI: Report Card Summaries
-- [ ] AI: Parent Communication Templates
+- [ ] AI: Parent Message Templates
 - [ ] AI: Curriculum Planner
 - [ ] AI: Attendance Pattern Analysis
 - [ ] Transport: Bus tracking (GPS + geofencing)
-- [ ] Admissions: application form builder + pipeline
+- [ ] Admissions: application form + pipeline
 - [ ] Surveys & Feedback
 - [ ] Library management
+- [ ] WhatsApp Business API approval (scale OTP delivery)
+- [ ] MSG91 as India SMS primary channel
+- [ ] S3 file storage + CloudFront CDN
+- [ ] BullMQ async job queue (PDF gen, bulk notifications)
+- [ ] Socket.io real-time (attendance dashboard, bus tracking)
+- [ ] Sentry error monitoring
 - [ ] Student health records + IEP flags
-- [ ] Staff attendance tracking
-- [ ] Audit logs UI (admin web)
-- [ ] SSO config for schools (Google Workspace / Azure AD)
-- [ ] GDPR/DPDP compliance portal
-- [ ] WhatsApp notifications (MSG91 Business API)
-- [ ] RTL language support (Arabic)
 
-### P3 — Enterprise (Month 12+)
-- [ ] AI: Predictive Analytics (performance + fee default scoring)
+### P3 — Enterprise
+
+- [ ] AI: Predictive Analytics (performance + fee default)
 - [ ] Admissions: offer letters + waitlist
 - [ ] Alumni management
-- [ ] Multi-school network admin (chain of schools view)
-- [ ] Custom subdomain + white-label branding
-- [ ] Advanced analytics: cohort analysis, year-over-year trends
-- [ ] Stripe International payments
+- [ ] Multi-school chain admin
+- [ ] Schema-per-tenant isolation
+- [ ] AWS EKS migration
+- [ ] Stripe international payments
+- [ ] RTL language support (Arabic)
+- [ ] Google Workspace / Azure AD SSO for staff
 
 ---
 
-## 11. Screen Inventory
+## 12. Screen Inventory
 
-### Mobile App — Parent Role
+### Mobile — Parent Role
 
-| Screen | Route | Priority |
-|--------|-------|----------|
-| Splash / Auth check | `/` | P0 |
-| Phone entry | `/(auth)/login` | P0 |
-| OTP verify | `/(auth)/otp` | P0 |
-| Dashboard | `/(parent)/` | P0 |
-| Attendance calendar | `/(parent)/attendance` | P0 |
-| Leave request | `/(parent)/attendance/leave` | P0 |
-| Assignments list | `/(parent)/academics` | P0 |
-| Assignment detail | `/(parent)/academics/[id]` | P0 |
-| Gradebook | `/(parent)/academics/grades` | P0 |
-| Report card viewer | `/(parent)/academics/report-card` | P1 |
-| Fee schedule | `/(parent)/fees` | P0 |
-| Fee payment | `/(parent)/fees/pay` | P0 |
-| Payment receipt | `/(parent)/fees/receipt/[id]` | P0 |
-| Messages list | `/(parent)/messages` | P0 |
-| Message thread | `/(parent)/messages/[threadId]` | P0 |
-| Announcements | `/(parent)/more/announcements` | P0 |
-| Timetable | `/(parent)/more/timetable` | P0 |
-| Calendar | `/(parent)/more/calendar` | P1 |
-| Bus tracking | `/(parent)/more/bus` | P2 |
-| PTM booking | `/(parent)/more/ptm` | P1 |
-| Document library | `/(parent)/more/documents` | P1 |
-| Notifications | `/(parent)/more/notifications` | P0 |
-| Profile & settings | `/(parent)/more/profile` | P0 |
-| Child profile | `/(parent)/more/child` | P0 |
+| Screen | Route | Priority | Status |
+|--------|-------|----------|--------|
+| Splash / auth check | `/` | P0 | 🔶 |
+| Phone entry | `/(auth)/login` | P0 | 🔶 |
+| OTP verify | `/(auth)/otp` | P0 | 🔶 |
+| Dashboard | `/(parent)/` | P0 | 🔶 stub |
+| Attendance calendar | `/(parent)/attendance` | P0 | 🔶 stub |
+| Leave request | `/(parent)/attendance/leave` | P0 | ⬜ |
+| Assignments list | `/(parent)/academics` | P0 | 🔶 stub |
+| Assignment detail | `/(parent)/academics/[id]` | P0 | ⬜ |
+| Gradebook | `/(parent)/academics/grades` | P0 | ⬜ |
+| Report card viewer | `/(parent)/academics/report-card` | P1 | ⬜ |
+| Fee schedule | `/(parent)/fees` | P0 | 🔶 stub |
+| Fee payment | `/(parent)/fees/pay` | P0 | ⬜ |
+| Payment receipt | `/(parent)/fees/receipt/[id]` | P0 | ⬜ |
+| Messages list | `/(parent)/messages` | P0 | 🔶 stub |
+| Message thread | `/(parent)/messages/[threadId]` | P0 | ⬜ |
+| Announcements | `/(parent)/more/announcements` | P0 | ⬜ |
+| Timetable | `/(parent)/more/timetable` | P0 | ⬜ |
+| Calendar | `/(parent)/more/calendar` | P1 | ⬜ |
+| Bus tracking | `/(parent)/more/bus` | P2 | ⬜ |
+| PTM booking | `/(parent)/more/ptm` | P1 | ⬜ |
+| Document library | `/(parent)/more/documents` | P1 | ⬜ |
+| Notifications | `/(parent)/more/notifications` | P0 | ⬜ |
+| Profile & settings | `/(parent)/more/profile` | P0 | 🔶 stub |
 
-### Mobile App — Teacher Role
+### Mobile — Teacher Role
 
-| Screen | Route | Priority |
-|--------|-------|----------|
-| Dashboard | `/(teacher)/` | P0 |
-| Today's classes | `/(teacher)/` (inline) | P0 |
-| Mark attendance | `/(teacher)/attendance` | P0 |
-| Attendance history | `/(teacher)/attendance/history` | P0 |
-| Assignments list | `/(teacher)/assignments` | P0 |
-| Create assignment | `/(teacher)/assignments/create` | P0 |
-| Assignment detail / grading | `/(teacher)/assignments/[id]` | P0 |
-| Gradebook | `/(teacher)/grades` | P1 |
-| Grade entry grid | `/(teacher)/grades/[classId]` | P1 |
-| Student profile | `/(teacher)/classes/student/[id]` | P0 |
-| Messages list | `/(teacher)/messages` | P0 |
-| Message thread | `/(teacher)/messages/[threadId]` | P0 |
-| AI homework feedback | `/(teacher)/assignments/[id]/ai-feedback` | P2 |
-| Timetable | `/(teacher)/more/timetable` | P0 |
-| Leave application | `/(teacher)/more/leave` | P1 |
-| PTM slots | `/(teacher)/more/ptm` | P1 |
-| Lesson plan submit | `/(teacher)/more/lesson-plan` | P2 |
-| Notifications | `/(teacher)/more/notifications` | P0 |
-| Profile & settings | `/(teacher)/more/profile` | P0 |
+| Screen | Route | Priority | Status |
+|--------|-------|----------|--------|
+| Dashboard | `/(teacher)/` | P0 | 🔶 stub |
+| Mark attendance | `/(teacher)/attendance` | P0 | 🔶 stub |
+| Attendance history | `/(teacher)/attendance/history` | P0 | ⬜ |
+| Assignments list | `/(teacher)/assignments` | P0 | 🔶 stub |
+| Create assignment | `/(teacher)/assignments/create` | P0 | ⬜ |
+| Assignment + grading | `/(teacher)/assignments/[id]` | P0 | ⬜ |
+| Gradebook | `/(teacher)/grades` | P1 | ⬜ |
+| Grade entry grid | `/(teacher)/grades/[classId]` | P1 | ⬜ |
+| Student profile | `/(teacher)/classes/student/[id]` | P0 | ⬜ |
+| Messages | `/(teacher)/messages` | P0 | 🔶 stub |
+| Message thread | `/(teacher)/messages/[threadId]` | P0 | ⬜ |
+| AI feedback | `/(teacher)/assignments/[id]/ai-feedback` | P2 | ⬜ |
+| Timetable | `/(teacher)/more/timetable` | P0 | ⬜ |
+| Leave application | `/(teacher)/more/leave` | P1 | ⬜ |
+| PTM slots | `/(teacher)/more/ptm` | P1 | ⬜ |
+| Notifications | `/(teacher)/more/notifications` | P0 | ⬜ |
+| Profile | `/(teacher)/more/profile` | P0 | 🔶 stub |
 
-### Mobile App — School Admin Role (Quick Access)
+### Mobile — School Admin Role
 
-| Screen | Route | Priority |
-|--------|-------|----------|
-| Quick stats dashboard | `/(school-admin)/` | P0 |
-| Live attendance | `/(school-admin)/attendance` | P0 |
-| Fee snapshot | `/(school-admin)/fees` | P0 |
-| Send announcement | `/(school-admin)/announcements/create` | P0 |
-| Notifications | `/(school-admin)/notifications` | P0 |
-| Profile | `/(school-admin)/profile` | P0 |
+| Screen | Route | Priority | Status |
+|--------|-------|----------|--------|
+| Quick stats dashboard | `/(admin)/` | P0 | 🔶 stub |
+| Live attendance | `/(admin)/attendance` | P0 | ⬜ |
+| Fee snapshot | `/(admin)/fees` | P0 | ⬜ |
+| Send announcement | `/(admin)/announcements/create` | P0 | ⬜ |
+| Profile | `/(admin)/profile` | P0 | 🔶 stub |
 
-### Web Admin Portal — Sidebar Navigation
+### Admin Web — Pages
 
-```
-Dashboard
-Students
-  ├── All Students
-  ├── Enroll Student
-  ├── Bulk Import
-  └── Promotions
-Teachers / Staff
-  ├── All Staff
-  ├── Add Teacher
-  └── Roles & Permissions
-Attendance
-  ├── Live View
-  ├── Reports
-  └── Leave Requests
-Academics
-  ├── Assignments
-  ├── Grades Overview
-  ├── Lesson Plans
-  ├── Timetable Builder
-  └── Report Cards
-Finance
-  ├── Fee Structures
-  ├── Collection Dashboard
-  ├── Payments
-  ├── Overdue / Defaulters
-  └── Reports
-Communication
-  ├── Announcements
-  ├── Messages
-  └── Notification Stats
-Transport              [P2]
-  ├── Routes
-  └── Live Fleet Map
-Admissions             [P2]
-  ├── Applications
-  └── Pipeline
-Library                [P2]
-Surveys                [P2]
-Settings
-  ├── School Profile
-  ├── Academic Years & Terms
-  ├── Grades & Sections
-  ├── Subjects & Bell Schedule
-  ├── Holidays & Calendar
-  ├── Payment Gateway
-  ├── SSO Config          [P2]
-  └── Audit Logs          [P2]
-AI Analytics            [P3]
-```
+| Page | Status | Priority |
+|------|--------|----------|
+| Login | 🔶 UI exists, not wired | P0 |
+| Dashboard | 🔶 UI exists, not wired | P0 |
+| Students list | 🔶 UI exists, not wired | P0 |
+| Student enroll | 🔶 UI exists, not wired | P0 |
+| Bulk CSV import | ⬜ | P0 |
+| Teachers list | 🔶 UI exists, not wired | P0 |
+| Attendance live | 🔶 UI exists, not wired | P0 |
+| Attendance reports | ⬜ | P1 |
+| Leave requests | ⬜ | P1 |
+| Assignments overview | 🔶 UI exists, not wired | P0 |
+| Timetable builder | ⬜ | P1 |
+| Report cards | ⬜ | P1 |
+| Fee structures | 🔶 UI exists, not wired | P0 |
+| Collection dashboard | 🔶 UI exists, not wired | P0 |
+| Announcements | 🔶 UI exists, not wired | P0 |
+| Settings: school profile | 🔶 UI exists, not wired | P0 |
+| Settings: grades & sections | ⬜ | P0 |
+
+**Legend:** ✅ Working | 🔶 Scaffolded/stubbed | ⬜ Not started
 
 ---
 
-*This document is the single source of truth for building SchoolOS. Update it as features are completed or specifications change. Each feature section maps directly to a backend service, a set of API endpoints, and a set of screens — build end-to-end (screen + API + service) one module at a time.*
+*Build end-to-end per feature: backend routes → admin web wired → mobile screens wired. Don't build all backend first then all frontend. Go feature by feature.*
