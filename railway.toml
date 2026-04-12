@@ -1,32 +1,8 @@
-# Root railway.toml — SchoolOS project topology
-# Each service is deployed separately on Railway.
-# Start with: auth  →  then add others as Phase N progresses.
+[build]
+dockerfilePath = "Dockerfile.all"
 
-[project]
-name = "schoolos"
-
-# ── Auth Service (Phase 1) ────────────────────────────────────────────────────
-[[services]]
-name        = "auth-service"
-source      = "."
-dockerfile  = "Dockerfile.service"
-buildArgs   = { SERVICE = "auth" }
-
-[services.deploy]
-healthcheckPath       = "/api/v1/health"
-healthcheckTimeout    = 30
-restartPolicyType     = "on_failure"
-
-# ── Student Service (Phase 2) ─────────────────────────────────────────────────
-# [[services]]
-# name     = "student-service"
-# source   = "."
-# dockerfile = "Dockerfile.service"
-# buildArgs = { SERVICE = "student" }
-
-# ── Attendance Service (Phase 2) ──────────────────────────────────────────────
-# [[services]]
-# name     = "attendance-service"
-# source   = "."
-# dockerfile = "Dockerfile.service"
-# buildArgs = { SERVICE = "attendance" }
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 60
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
