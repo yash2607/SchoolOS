@@ -6,7 +6,7 @@
     "build": "nest build",
     "dev": "nest start --watch",
     "typecheck": "tsc --noEmit",
-    "start": "node dist/main"
+    "start": "node dist/services/auth/src/main"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.15",

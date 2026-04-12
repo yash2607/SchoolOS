@@ -20,8 +20,9 @@ RUN pnpm --filter @schoolos/types   build && \
 # Build the target service
 RUN cd backend/services/${SERVICE} && pnpm build
 
-# Run from service directory so relative node_modules paths resolve
-WORKDIR /app/backend/services/${SERVICE}
+# Run from monorepo root so all workspace node_modules resolve correctly
+# tsc mirrors full path: dist/services/{SERVICE}/src/main.js
+WORKDIR /app
 ENV NODE_ENV=production
 EXPOSE 3001
-CMD ["node", "dist/main"]
+CMD node backend/services/${SERVICE}/dist/services/${SERVICE}/src/main.js
