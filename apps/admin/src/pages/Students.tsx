@@ -2,7 +2,7 @@ import { useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useStudents } from "@schoolos/api";
 import type { Student } from "@schoolos/types";
-import { Layout } from "../components/Layout.js";
+import { PortalLayout } from "../components/PortalLayout.js";
 
 type StudentRow = Student & {
   gradeName?: string | null;
@@ -48,7 +48,11 @@ export function StudentsPage(): React.JSX.Element {
   };
 
   return (
-    <Layout title="Students">
+    <PortalLayout
+      portal="admin"
+      title="Students"
+      subtitle="Enrollment, search, and profile management for the student information system."
+    >
       {/* Header actions */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
@@ -189,6 +193,6 @@ export function StudentsPage(): React.JSX.Element {
           </table>
         </div>
       </div>
-    </Layout>
+    </PortalLayout>
   );
 }

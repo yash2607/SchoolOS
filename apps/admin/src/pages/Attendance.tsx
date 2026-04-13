@@ -1,4 +1,4 @@
-import { Layout } from "../components/Layout.js";
+import { PortalLayout } from "../components/PortalLayout.js";
 
 const MOCK_ATTENDANCE = [
   { class: "Grade 10-A", present: 38, absent: 2, late: 0, total: 40 },
@@ -17,7 +17,11 @@ export function AttendancePage(): React.JSX.Element {
   const overallPct = Math.round((overall.present / overall.total) * 100);
 
   return (
-    <Layout title="Attendance">
+    <PortalLayout
+      portal="admin"
+      title="Attendance"
+      subtitle="School-wide attendance tracking with live class-level visibility."
+    >
       {/* Summary bar */}
       <div className="mb-6 flex flex-wrap gap-4">
         <div className="flex-1 min-w-48 rounded-xl bg-white border border-gray-100 shadow-sm p-5">
@@ -86,6 +90,6 @@ export function AttendancePage(): React.JSX.Element {
           </table>
         </div>
       </div>
-    </Layout>
+    </PortalLayout>
   );
 }

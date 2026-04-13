@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore, type AdminUser } from "../store/authStore.js";
 import { apiClient } from "../lib/api.js";
+import { getDefaultPortalPath } from "../lib/portal.js";
 
 type Step = "phone" | "otp";
 
@@ -153,7 +154,7 @@ const S: Record<string, CSSProperties> = {
 
 export function LoginPage(): React.JSX.Element {
   const navigate = useNavigate();
-  const { setAuth, isAuthenticated } = useAuthStore();
+  const { setAuth, isAuthenticated, user } = useAuthStore();
 
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
@@ -165,8 +166,10 @@ export function LoginPage(): React.JSX.Element {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    if (isAuthenticated) navigate("/dashboard", { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated) {
+      navigate(getDefaultPortalPath(user?.role), { replace: true });
+    }
+  }, [isAuthenticated, navigate, user?.role]);
 
   useEffect(() => {
     if (countdown <= 0) return;
@@ -216,7 +219,7 @@ export function LoginPage(): React.JSX.Element {
         accessToken: string; refreshToken: string;
       }>("/api/v1/auth/otp/verify", { mobile: fmt(phone), otp: c, schoolCode });
       await setAuth({ ...data.user, schoolName: data.school?.name ?? "" }, data.accessToken, data.refreshToken);
-      navigate("/dashboard", { replace: true });
+      navigate(getDefaultPortalPath(data.user.role), { replace: true });
     } catch (err: unknown) {
       const e2 = err as { response?: { data?: { message?: string } }; message?: string };
       setError(e2?.response?.data?.message ?? e2?.message ?? "Invalid OTP");

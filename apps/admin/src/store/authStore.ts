@@ -3,12 +3,13 @@ import { persist } from "zustand/middleware";
 import { tokenStorage } from "../lib/tokenStorage.js";
 import { apiClient } from "../lib/api.js";
 import axios from "axios";
+import type { UserRole } from "@schoolos/types";
 
 export interface AdminUser {
   id: string;
   name: string;
   mobileE164: string | null;
-  role: "SUPER_ADMIN" | "SCHOOL_ADMIN" | "ACADEMIC_COORD" | "CLASS_TEACHER" | "SUBJECT_TEACHER";
+  role: UserRole;
   schoolId: string;
   schoolName: string;
   sessionId: string;

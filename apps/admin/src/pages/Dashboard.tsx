@@ -1,4 +1,4 @@
-import { Layout } from "../components/Layout.js";
+import { PortalLayout } from "../components/PortalLayout.js";
 import { useAuthStore } from "../store/authStore.js";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -24,7 +24,11 @@ export function DashboardPage(): React.JSX.Element {
   const { user } = useAuthStore();
 
   return (
-    <Layout title="Executive Dashboard">
+    <PortalLayout
+      portal="admin"
+      title="Executive Dashboard"
+      subtitle="Operations, attendance, finance, and school-wide signals in one place."
+    >
       {/* KPI Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
         {[
@@ -114,6 +118,6 @@ export function DashboardPage(): React.JSX.Element {
           Logged in as <span className="font-medium">{user.name}</span> · {user.role.replace(/_/g, " ")}
         </p>
       )}
-    </Layout>
+    </PortalLayout>
   );
 }

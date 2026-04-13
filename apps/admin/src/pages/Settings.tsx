@@ -1,6 +1,6 @@
 import { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Layout } from "../components/Layout.js";
+import { PortalLayout } from "../components/PortalLayout.js";
 import { useAuthStore } from "../store/authStore.js";
 
 type UserRole = "SUPER_ADMIN" | "SCHOOL_ADMIN" | "ACADEMIC_COORD" | "CLASS_TEACHER" | "SUBJECT_TEACHER" | "PARENT";
@@ -84,7 +84,11 @@ export function SettingsPage(): React.JSX.Element {
   };
 
   return (
-    <Layout title="Settings">
+    <PortalLayout
+      portal="admin"
+      title="Settings"
+      subtitle="School profile, user roles, and invitations for the MVP deployment."
+    >
       <Tabs.Root defaultValue="school">
         <Tabs.List className="mb-6 flex gap-1 rounded-xl bg-gray-100 p-1 w-fit">
           {[
@@ -223,6 +227,6 @@ export function SettingsPage(): React.JSX.Element {
           </div>
         </Tabs.Content>
       </Tabs.Root>
-    </Layout>
+    </PortalLayout>
   );
 }

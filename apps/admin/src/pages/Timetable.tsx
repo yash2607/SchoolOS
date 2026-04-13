@@ -1,20 +1,39 @@
-import { Layout } from "../components/Layout.js";
+import { PortalLayout } from "../components/PortalLayout.js";
 
 export function TimetablePage(): React.JSX.Element {
   return (
-    <Layout title="Timetable">
-      <div className="flex flex-col items-center justify-center py-24">
-        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-blue-50 mb-5">
-          <svg className="h-10 w-10 text-[#2E7DD1]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-semibold text-[#1A1A2E] mb-2">Timetable Management</h2>
-        <p className="text-sm text-[#4A4A6A] text-center max-w-sm">
-          Create and manage class schedules, period assignments, and teacher timetables. Coming in Phase 2.
-        </p>
-        <span className="mt-4 inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-[#2E7DD1]">Coming Soon</span>
+    <PortalLayout
+      portal="admin"
+      title="Timetable"
+      subtitle="Manual timetable builder and publish workflow from the MVP roadmap."
+    >
+      <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900">Builder Workflow</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {[
+              "Create periods with subject, teacher, room, and class mapping",
+              "Publish schedules to parent and student portals",
+              "Teacher timetable parity with mobile daily views",
+              "Exam schedule slots and school calendar events",
+            ].map((item) => (
+              <div key={item} className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                {item}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900">Launch Priorities</h2>
+          <ol className="mt-5 space-y-3 text-sm text-slate-600">
+            <li className="rounded-2xl bg-slate-50 px-4 py-3">1. Manual section timetable entry.</li>
+            <li className="rounded-2xl bg-slate-50 px-4 py-3">2. Teacher timetable verification before publish.</li>
+            <li className="rounded-2xl bg-slate-50 px-4 py-3">3. Parent/student read-only weekly view on web and mobile.</li>
+            <li className="rounded-2xl bg-slate-50 px-4 py-3">4. Exam schedule extension after class timetable is stable.</li>
+          </ol>
+        </section>
       </div>
-    </Layout>
+    </PortalLayout>
   );
 }

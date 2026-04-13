@@ -1,20 +1,46 @@
-import { Layout } from "../components/Layout.js";
+import { PortalLayout } from "../components/PortalLayout.js";
 
 export function FinancePage(): React.JSX.Element {
   return (
-    <Layout title="Finance">
-      <div className="flex flex-col items-center justify-center py-24">
-        <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-green-50 mb-5">
-          <svg className="h-10 w-10 text-[#1A7A4A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-semibold text-[#1A1A2E] mb-2">Finance & Fee Management</h2>
-        <p className="text-sm text-[#4A4A6A] text-center max-w-sm">
-          Track fee collections, manage installments, send payment reminders, and generate financial reports. Coming in Phase 2.
-        </p>
-        <span className="mt-4 inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-[#1A7A4A]">Coming Soon</span>
+    <PortalLayout
+      portal="admin"
+      title="Finance"
+      subtitle="Fee setup, collections, overdue follow-up, and ledger visibility for MVP schools."
+    >
+      <div className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900">Fee Management Modules</h2>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            {[
+              "Fee structure setup by grade and academic year",
+              "Installments with due dates and reminder windows",
+              "Discounts, scholarships, and manual adjustments",
+              "Student ledger with online and offline payment entries",
+            ].map((item) => (
+              <div key={item} className="rounded-2xl bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                {item}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-slate-900">Collection Dashboard</h2>
+          <div className="mt-5 space-y-3">
+            {[
+              { label: "Expected This Month", value: "INR 6.8L" },
+              { label: "Collected", value: "INR 4.2L" },
+              { label: "Overdue Accounts", value: "86" },
+              { label: "Offline Entries Pending", value: "12" },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-4">
+                <span className="text-sm text-slate-600">{item.label}</span>
+                <span className="text-sm font-semibold text-slate-900">{item.value}</span>
+              </div>
+            ))}
+          </div>
+        </section>
       </div>
-    </Layout>
+    </PortalLayout>
   );
 }

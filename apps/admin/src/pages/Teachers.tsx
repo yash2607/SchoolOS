@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Layout } from "../components/Layout.js";
+import { PortalLayout } from "../components/PortalLayout.js";
 import * as Dialog from "@radix-ui/react-dialog";
 
 interface Teacher {
@@ -62,7 +62,11 @@ export function TeachersPage(): React.JSX.Element {
   };
 
   return (
-    <Layout title="Teachers">
+    <PortalLayout
+      portal="admin"
+      title="Teachers"
+      subtitle="Teacher roster, roles, and staffing for the MVP admin workspace."
+    >
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="relative">
           <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,6 +172,6 @@ export function TeachersPage(): React.JSX.Element {
           </table>
         </div>
       </div>
-    </Layout>
+    </PortalLayout>
   );
 }
