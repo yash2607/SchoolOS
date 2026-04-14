@@ -13,7 +13,7 @@ interface ParentChildResponse {
   blurhash?: string | null;
 }
 
-interface StudentListResponse {
+export interface StudentListResponse {
   id: string;
   studentCode: string;
   firstName: string;
@@ -37,7 +37,7 @@ interface UseStudentsFilters {
   search?: string;
 }
 
-function mapStudent(student: StudentListResponse): Student {
+export function mapStudent(student: StudentListResponse): Student {
   return {
     id: student.id,
     admissionNo: student.studentCode,

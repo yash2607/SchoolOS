@@ -1,6 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+ï»¿import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { useStudents } from "@schoolos/api";
+import {
+  useCreateStudent,
+  useStudents,
+  useUpdateStudent,
+} from "@schoolos/api";
 import type { Student } from "@schoolos/types";
 import { PortalLayout } from "../components/PortalLayout.js";
 
@@ -9,13 +13,25 @@ type StudentRow = Student & {
   sectionName?: string | null;
 };
 
+type GradeOption = {
+  id: string;
+  label: string;
+};
+
+type SectionOption = {
+  id: string;
+  label: string;
+  gradeId: string;
+};
+
 const BLANK_FORM = {
-  name: "",
-  admissionNo: "",
-  grade: "",
-  section: "",
+  firstName: "",
+  lastName: "",
+  gradeId: "",
+  sectionId: "",
   dob: "",
-  gender: "Male" as const,
+  admissionDate: "",
+  gender: "M" as const,
 };
 
 const STATUS_STYLES: Record<Student["status"], string> = {
@@ -44,7 +60,7 @@ function formatDate(value: string): string {
 }
 
 function gradeTag(student: StudentRow): string {
-  return `${student.gradeName ?? student.gradeId} • ${student.sectionName ?? student.sectionId}`;
+  return `${student.gradeName ?? student.gradeId} â€¢ ${student.sectionName ?? student.sectionId}`;
 }
 
 function performanceLabel(student: StudentRow): {
@@ -66,6 +82,8 @@ export function StudentsPage(): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...BLANK_FORM });
+  const createStudent = useCreateStudent();
+  const updateStudent = useUpdateStudent();
   const studentsQuery = useStudents(
     search.trim() ? { search: search.trim() } : {}
   );
@@ -80,6 +98,44 @@ export function StudentsPage(): React.JSX.Element {
       ),
     [gradeFilter, students]
   );
+  const gradeOptions = useMemo<GradeOption[]>(
+    () =>
+      Array.from(
+        new Map(
+          students.map((student) => [
+            student.gradeId,
+            {
+              id: student.gradeId,
+              label: student.gradeName ?? student.gradeId,
+            },
+          ])
+        ).values()
+      ),
+    [students]
+  );
+  const sectionOptions = useMemo<SectionOption[]>(
+    () =>
+      Array.from(
+        new Map(
+          students.map((student) => [
+            student.sectionId,
+            {
+              id: student.sectionId,
+              label: student.sectionName ?? student.sectionId,
+              gradeId: student.gradeId,
+            },
+          ])
+        ).values()
+      ),
+    [students]
+  );
+  const availableSections = useMemo(
+    () =>
+      sectionOptions.filter((section) =>
+        form.gradeId ? section.gradeId === form.gradeId : true
+      ),
+    [form.gradeId, sectionOptions]
+  );
 
   useEffect(() => {
     if (!filtered.length) {
@@ -91,13 +147,59 @@ export function StudentsPage(): React.JSX.Element {
     }
   }, [filtered, selectedStudentId]);
 
+  useEffect(() => {
+    const firstGrade = gradeOptions[0];
+    if (!form.gradeId && firstGrade) {
+      setForm((current) => ({ ...current, gradeId: firstGrade.id }));
+    }
+  }, [form.gradeId, gradeOptions]);
+
+  useEffect(() => {
+    if (!availableSections.length) return;
+    if (
+      !form.sectionId ||
+      !availableSections.some((section) => section.id === form.sectionId)
+    ) {
+      setForm((current) => ({
+        ...current,
+        sectionId: availableSections[0]?.id ?? "",
+      }));
+    }
+  }, [availableSections, form.sectionId]);
+
   const selectedStudent =
     filtered.find((student) => student.id === selectedStudentId) ?? null;
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
+    const created = await createStudent.mutateAsync({
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      gender: form.gender,
+      gradeId: form.gradeId,
+      sectionId: form.sectionId,
+      ...(form.dob ? { dateOfBirth: form.dob } : {}),
+      ...(form.admissionDate ? { admissionDate: form.admissionDate } : {}),
+    });
     setForm({ ...BLANK_FORM });
+    setSelectedStudentId(created.id);
     setOpen(false);
+  };
+
+  const handleToggleSupport = async () => {
+    if (!selectedStudent) return;
+    await updateStudent.mutateAsync({
+      id: selectedStudent.id,
+      iepFlag: !selectedStudent.hasIep,
+    });
+  };
+
+  const handleStatusChange = async (status: "active" | "transferred") => {
+    if (!selectedStudent) return;
+    await updateStudent.mutateAsync({
+      id: selectedStudent.id,
+      status,
+    });
   };
 
   return (
@@ -135,39 +237,40 @@ export function StudentsPage(): React.JSX.Element {
                     Add Student
                   </Dialog.Title>
                   <Dialog.Description className="mt-2 text-sm text-slate-500">
-                    The UI is production-ready. Final create/update wiring is the
-                    next backend feature slice.
+                    This form is now wired to the real student enrollment endpoint.
                   </Dialog.Description>
+                  {createStudent.isError && (
+                    <div className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                      Student enrollment failed. Please verify grade and section selections.
+                    </div>
+                  )}
                   <form onSubmit={handleAdd} className="mt-6 grid gap-4 md:grid-cols-2">
-                    <div className="md:col-span-2">
+                    <div>
                       <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                        Full Name
+                        First Name
                       </label>
                       <input
                         required
-                        value={form.name}
+                        value={form.firstName}
                         onChange={(e) =>
-                          setForm((current) => ({ ...current, name: e.target.value }))
+                          setForm((current) => ({ ...current, firstName: e.target.value }))
                         }
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:bg-white"
-                        placeholder="e.g. Aanya Sharma"
+                        placeholder="Aanya"
                       />
                     </div>
                     <div>
                       <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
-                        Admission No
+                        Last Name
                       </label>
                       <input
                         required
-                        value={form.admissionNo}
+                        value={form.lastName}
                         onChange={(e) =>
-                          setForm((current) => ({
-                            ...current,
-                            admissionNo: e.target.value,
-                          }))
+                          setForm((current) => ({ ...current, lastName: e.target.value }))
                         }
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:bg-white"
-                        placeholder="2026-014"
+                        placeholder="Sharma"
                       />
                     </div>
                     <div>
@@ -188,28 +291,54 @@ export function StudentsPage(): React.JSX.Element {
                       <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
                         Grade
                       </label>
-                      <input
+                      <select
                         required
-                        value={form.grade}
+                        value={form.gradeId}
                         onChange={(e) =>
-                          setForm((current) => ({ ...current, grade: e.target.value }))
+                          setForm((current) => ({ ...current, gradeId: e.target.value }))
                         }
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:bg-white"
-                        placeholder="Grade 8"
-                      />
+                      >
+                        {gradeOptions.map((grade) => (
+                          <option key={grade.id} value={grade.id}>
+                            {grade.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
                         Section
                       </label>
-                      <input
+                      <select
                         required
-                        value={form.section}
+                        value={form.sectionId}
                         onChange={(e) =>
-                          setForm((current) => ({ ...current, section: e.target.value }))
+                          setForm((current) => ({ ...current, sectionId: e.target.value }))
                         }
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:bg-white"
-                        placeholder="A"
+                      >
+                        {availableSections.map((section) => (
+                          <option key={section.id} value={section.id}>
+                            {section.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-2 block text-xs font-bold uppercase tracking-[0.18em] text-slate-400">
+                        Admission Date
+                      </label>
+                      <input
+                        type="date"
+                        value={form.admissionDate}
+                        onChange={(e) =>
+                          setForm((current) => ({
+                            ...current,
+                            admissionDate: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:bg-white"
                       />
                     </div>
                     <div>
@@ -226,8 +355,14 @@ export function StudentsPage(): React.JSX.Element {
                         }
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none transition focus:border-indigo-300 focus:bg-white"
                       >
-                        {["Male", "Female", "Other"].map((item) => (
-                          <option key={item}>{item}</option>
+                        {[
+                          { label: "Male", value: "M" },
+                          { label: "Female", value: "F" },
+                          { label: "Other", value: "Other" },
+                        ].map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -242,9 +377,10 @@ export function StudentsPage(): React.JSX.Element {
                       </Dialog.Close>
                       <button
                         type="submit"
+                        disabled={createStudent.isPending}
                         className="rounded-2xl bg-indigo-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-indigo-500"
                       >
-                        Save Draft
+                        {createStudent.isPending ? "Saving..." : "Enroll Student"}
                       </button>
                     </div>
                   </form>
@@ -329,7 +465,7 @@ export function StudentsPage(): React.JSX.Element {
                               {student.fullName}
                             </div>
                             <div className="text-xs text-slate-500">
-                              {student.gender} • {student.hasIep ? "IEP active" : "General track"}
+                              {student.gender} â€¢ {student.hasIep ? "IEP active" : "General track"}
                             </div>
                           </div>
                         </div>
@@ -390,15 +526,29 @@ export function StudentsPage(): React.JSX.Element {
                     {selectedStudent.fullName}
                   </h3>
                   <p className="mt-1 text-sm text-slate-500">
-                    {gradeTag(selectedStudent)} • {selectedStudent.admissionNo}
+                    {gradeTag(selectedStudent)} â€¢ {selectedStudent.admissionNo}
                   </p>
                 </div>
                 <div className="mt-6 grid grid-cols-2 gap-3">
-                  <button className="rounded-2xl bg-indigo-50 px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-indigo-700 transition hover:bg-indigo-100">
-                    Message Family
+                  <button
+                    onClick={handleToggleSupport}
+                    disabled={updateStudent.isPending}
+                    className="rounded-2xl bg-indigo-50 px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {selectedStudent.hasIep ? "Clear Support" : "Enable Support"}
                   </button>
-                  <button className="rounded-2xl bg-slate-950 px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-white transition hover:opacity-90">
-                    Full Profile
+                  <button
+                    onClick={() =>
+                      handleStatusChange(
+                        selectedStudent.status === "active"
+                          ? "transferred"
+                          : "active"
+                      )
+                    }
+                    disabled={updateStudent.isPending}
+                    className="rounded-2xl bg-slate-950 px-4 py-3 text-xs font-bold uppercase tracking-[0.14em] text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {selectedStudent.status === "active" ? "Transfer" : "Reactivate"}
                   </button>
                 </div>
               </div>
@@ -446,6 +596,11 @@ export function StudentsPage(): React.JSX.Element {
                       />
                     </div>
                     <div className="mt-5 space-y-3">
+                      {updateStudent.isError && (
+                        <div className="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                          Student update failed. Please try again.
+                        </div>
+                      )}
                       <MetricRow
                         label="Attendance outlook"
                         value={
