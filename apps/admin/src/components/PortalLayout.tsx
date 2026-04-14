@@ -51,7 +51,6 @@ export function PortalLayout({
   const [open, setOpen] = useState(false);
 
   const meta = portalMeta[portal];
-  const navAccent = meta.accent;
   const initials =
     user?.name
       ?.split(" ")
@@ -59,6 +58,7 @@ export function PortalLayout({
       .join("")
       .toUpperCase()
       .slice(0, 2) ?? "SO";
+
   const currentDateLabel = useMemo(
     () =>
       new Intl.DateTimeFormat("en-IN", {
@@ -69,6 +69,13 @@ export function PortalLayout({
     [],
   );
 
+  const searchPlaceholder =
+    portal === "admin"
+      ? "Search students, records, or invoices..."
+      : portal === "parent"
+        ? "Search grades, fees, or messages..."
+        : "Search subjects, assignments, or timetable...";
+
   const handleLogout = async () => {
     await logout();
     navigate("/login");
@@ -77,9 +84,7 @@ export function PortalLayout({
   const childPicker =
     portal !== "admin" ? (
       <div className="portal-student-card">
-        <p className="portal-student-card__label">
-          {sourceLabel}
-        </p>
+        <p className="portal-student-card__label">{sourceLabel}</p>
         <select
           value={activeStudentId ?? ""}
           onChange={(event) => setActiveStudentId(event.target.value || null)}
@@ -105,61 +110,65 @@ export function PortalLayout({
     ) : null;
 
   const sidebar = (
-    <>
-      <div className="portal-sidebar__inner">
-        <div className="portal-brand">
-          <div className="portal-brand__mark">SO</div>
-          <div>
-            <div className="portal-brand__eyebrow">School ERP</div>
-            <div className="portal-brand__title">SchoolOS</div>
-          </div>
-        </div>
-
-        {user?.schoolName && (
-          <div className="portal-school">
-            <div className="portal-school__label">{meta.label}</div>
-            <div className="portal-school__name">{user.schoolName}</div>
-          </div>
-        )}
-
-        <nav className="portal-nav">
-          {meta.nav.map((item) => {
-            const active = location.pathname === item.path;
-            return (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setOpen(false)}
-                className={`portal-nav__link${active ? " is-active" : ""}`}
-              >
-                <span className="portal-nav__icon">{item.short}</span>
-                <span className="portal-nav__label">{item.label}</span>
-                <span className="portal-nav__chevron">â€º</span>
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="portal-sidebar__footer">
-          {childPicker}
-          <div className="portal-user-card">
-            <div className="portal-user-card__avatar">{initials}</div>
-            <div>
-              <div className="portal-user-card__name">{user?.name ?? "School User"}</div>
-              <div className="portal-user-card__role">
-                {user?.role?.replace(/_/g, " ")}
-              </div>
-            </div>
-            <button
-              onClick={() => void handleLogout()}
-              className="portal-user-card__logout"
-            >
-              Exit
-            </button>
-          </div>
+    <div className="portal-sidebar__inner">
+      <div className="portal-brand">
+        <div className="portal-brand__mark">S</div>
+        <div>
+          <div className="portal-brand__eyebrow">Academic Architect</div>
+          <div className="portal-brand__title">SchoolOS</div>
         </div>
       </div>
-    </>
+
+      {user?.schoolName && (
+        <div className="portal-school">
+          <div className="portal-school__label">{meta.label}</div>
+          <div className="portal-school__name">{user.schoolName}</div>
+        </div>
+      )}
+
+      <nav className="portal-nav">
+        {meta.nav.map((item) => {
+          const active = location.pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setOpen(false)}
+              className={`portal-nav__link${active ? " is-active" : ""}`}
+            >
+              <span className="portal-nav__icon">{item.short}</span>
+              <span className="portal-nav__label">{item.label}</span>
+              <span className="portal-nav__chevron">›</span>
+            </Link>
+          );
+        })}
+      </nav>
+
+      <div className="portal-sidebar__footer">
+        {portal === "admin" && (
+          <button className="portal-sidebar__cta" type="button">
+            <span>+</span>
+            <span>New Admission</span>
+          </button>
+        )}
+        {childPicker}
+        <div className="portal-user-card">
+          <div className="portal-user-card__avatar">{initials}</div>
+          <div>
+            <div className="portal-user-card__name">{user?.name ?? "School User"}</div>
+            <div className="portal-user-card__role">
+              {user?.role?.replace(/_/g, " ")}
+            </div>
+          </div>
+          <button
+            onClick={() => void handleLogout()}
+            className="portal-user-card__logout"
+          >
+            Exit
+          </button>
+        </div>
+      </div>
+    </div>
   );
 
   return (
@@ -175,14 +184,14 @@ export function PortalLayout({
 
       <aside
         className={`portal-sidebar portal-sidebar--mobile${open ? " is-open" : ""}`}
-        style={{ background: meta.background }}
+        style={{ background: meta.background, ["--portal-accent" as string]: meta.accent }}
       >
         {sidebar}
       </aside>
 
       <aside
         className="portal-sidebar"
-        style={{ background: meta.background }}
+        style={{ background: meta.background, ["--portal-accent" as string]: meta.accent }}
       >
         {sidebar}
       </aside>
@@ -190,40 +199,48 @@ export function PortalLayout({
       <div className="portal-main">
         <div className="portal-surface">
           <header className="portal-topbar">
-            <div className="portal-heading">
-              <button
-                onClick={() => setOpen(true)}
-                className="portal-topbar__menu"
-              >
-                Menu
-              </button>
-              <h1>{title}</h1>
-              {subtitle && <p>{subtitle}</p>}
+            <div className="portal-topbar__row">
+              <div className="portal-heading">
+                <button
+                  onClick={() => setOpen(true)}
+                  className="portal-topbar__menu"
+                >
+                  Menu
+                </button>
+                <div>
+                  <h1>{title}</h1>
+                  {subtitle && <p>{subtitle}</p>}
+                </div>
+              </div>
+
+              <div className="portal-topbar__actions">
+                <div className="portal-topbar__search">
+                  <span className="portal-topbar__search-icon">?</span>
+                  <input
+                    aria-label="Search"
+                    placeholder={searchPlaceholder}
+                    type="search"
+                  />
+                </div>
+                <PortalSwitcher portal={portal} />
+              </div>
             </div>
 
             <div className="portal-topbar__meta">
-              <PortalSwitcher portal={portal} />
               {portal !== "admin" && activeStudent && (
                 <div className="portal-topbar__student">
-                  {activeStudent.fullName} Â· {currentDateLabel}
+                  {activeStudent.fullName} · {currentDateLabel}
                 </div>
               )}
               {portal === "admin" && (
                 <div className="portal-topbar__student">
-                  Live ERP workspace Â· {currentDateLabel}
+                  Live ERP workspace · {currentDateLabel}
                 </div>
               )}
             </div>
           </header>
 
-          <main
-            className="portal-content"
-            style={{
-              ["--portal-accent" as string]: navAccent,
-            }}
-          >
-            {children}
-          </main>
+          <main className="portal-content">{children}</main>
         </div>
       </div>
     </div>

@@ -1,23 +1,130 @@
 import { PortalLayout } from "../components/PortalLayout.js";
 import { useAuthStore } from "../store/authStore.js";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  Bar,
+  BarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 
 const attendanceTrend = [
-  { day: "Mon", pct: 91 },
-  { day: "Tue", pct: 88 },
-  { day: "Wed", pct: 94 },
-  { day: "Thu", pct: 90 },
-  { day: "Fri", pct: 92 },
+  { day: "Mon", pct: 84 },
+  { day: "Tue", pct: 70 },
+  { day: "Wed", pct: 92 },
+  { day: "Thu", pct: 88 },
+  { day: "Fri", pct: 94 },
+  { day: "Sat", pct: 75 },
+  { day: "Sun", pct: 82 },
+  { day: "Mon", pct: 90 },
+  { day: "Tue", pct: 95 },
+  { day: "Wed", pct: 79 },
+  { day: "Thu", pct: 83 },
+  { day: "Today", pct: 89 },
 ];
 
-const gradeAttendance = [
-  { class: "Grade 10-A", present: 38, total: 40 },
-  { class: "Grade 10-B", present: 35, total: 40 },
-  { class: "Grade 9-A", present: 42, total: 45 },
-  { class: "Grade 8-A", present: 28, total: 38 },
-  { class: "Grade 7-A", present: 36, total: 40 },
+const kpis = [
+  {
+    label: "Total Students",
+    value: "1,240",
+    helper: "v.s. 1,211 last month",
+    icon: "ST",
+    tone: "#eef2ff",
+    trend: "+2.4%",
+    trendColor: "#10b981",
+  },
+  {
+    label: "Attendance Today",
+    value: "94.2%",
+    helper: "v.s. 93.4% average",
+    icon: "AT",
+    tone: "#ecfdf5",
+    trend: "+0.8%",
+    trendColor: "#10b981",
+  },
+  {
+    label: "Fees Collected",
+    value: "Rs 84,200",
+    helper: "Target: Rs 90,000",
+    icon: "FE",
+    tone: "#eff6ff",
+    trend: "+5.1%",
+    trendColor: "#10b981",
+  },
+  {
+    label: "Pending Fees",
+    value: "Rs 12,500",
+    helper: "12 overdue reminders",
+    icon: "PD",
+    tone: "#fff1f2",
+    trend: "-1.2%",
+    trendColor: "#e11d48",
+  },
+];
+
+const activity = [
+  {
+    title: "New Admission",
+    detail: "Sarah Jenkins � Grade 9 - Applied Sciences",
+    time: "14 minutes ago",
+    icon: "AD",
+    tone: "#eef2ff",
+  },
+  {
+    title: "Fees Paid",
+    detail: "Grade 4 - Section B � Quarterly exam invoice",
+    time: "2 hours ago",
+    icon: "FE",
+    tone: "#ecfdf5",
+  },
+  {
+    title: "Announcement Sent",
+    detail: "Parent-Teacher Meeting scheduled",
+    time: "5 hours ago",
+    icon: "AN",
+    tone: "#eff6ff",
+  },
+  {
+    title: "Timetable Updated",
+    detail: "Section C - Mathematics Slot",
+    time: "Yesterday",
+    icon: "TT",
+    tone: "#f3f4f6",
+  },
+];
+
+const quickActions = [
+  {
+    title: "Add Student",
+    caption: "Register new admissions",
+    icon: "ST",
+  },
+  {
+    title: "Send Announcement",
+    caption: "Notify parents and staff",
+    icon: "AN",
+  },
+  {
+    title: "Mark Attendance",
+    caption: "Manual registry entry",
+    icon: "AT",
+  },
+];
+
+const alerts = [
+  {
+    title: "Low Attendance Alert",
+    detail: "5 students in Grade 11 have fallen below the 75% threshold this week.",
+    bg: "#fff1f2",
+    color: "#be123c",
+  },
+  {
+    title: "Pending Reminders",
+    detail: "12 pending fee reminders are waiting for approval before dispatch.",
+    bg: "#fff7ed",
+    color: "#c2410c",
+  },
 ];
 
 export function DashboardPage(): React.JSX.Element {
@@ -26,96 +133,153 @@ export function DashboardPage(): React.JSX.Element {
   return (
     <PortalLayout
       portal="admin"
-      title="Executive Dashboard"
-      subtitle="Operations, attendance, finance, and school-wide signals in one place."
+      title="Dashboard Overview"
+      subtitle="Welcome back. Here is what is happening across your school today."
     >
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 mb-6">
-        {[
-          { label: "Today's Attendance", value: "92%", change: "+2% vs last week", changeColor: "text-[#1A7A4A]", bg: "bg-green-50", iconBg: "bg-green-100",
-            icon: <svg className="h-5 w-5 text-[#1A7A4A]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg> },
-          { label: "Fee Collection (Month)", value: "₹4.2L", change: "+12% vs last month", changeColor: "text-[#2E7DD1]", bg: "bg-blue-50", iconBg: "bg-blue-100",
-            icon: <svg className="h-5 w-5 text-[#2E7DD1]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-          { label: "Active Students", value: "1,248", change: "Enrolled this year", changeColor: "text-[#4A4A6A]", bg: "bg-gray-50", iconBg: "bg-gray-100",
-            icon: <svg className="h-5 w-5 text-[#4A4A6A]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg> },
-          { label: "Pending Leaves", value: "7", change: "Awaiting approval", changeColor: "text-[#D4600A]", bg: "bg-orange-50", iconBg: "bg-orange-100",
-            icon: <svg className="h-5 w-5 text-[#D4600A]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-        ].map(({ label, value, change, changeColor, bg, iconBg, icon }) => (
-          <div key={label} className={`${bg} rounded-xl p-5 border border-white shadow-sm`}>
-            <div className="flex items-start justify-between mb-3">
-              <p className="text-sm font-medium text-[#4A4A6A]">{label}</p>
-              <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${iconBg}`}>{icon}</div>
+      <section className="erp-kpi-grid mb-6">
+        {kpis.map((item) => (
+          <article key={item.label} className="erp-kpi-card">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div
+                className="grid h-12 w-12 place-items-center rounded-2xl text-sm font-extrabold text-[#3525cd]"
+                style={{ background: item.tone }}
+              >
+                {item.icon}
+              </div>
+              <span
+                className="rounded-full px-3 py-1 text-xs font-bold"
+                style={{
+                  background: `${item.trendColor}12`,
+                  color: item.trendColor,
+                }}
+              >
+                {item.trend}
+              </span>
             </div>
-            <p className="text-2xl font-bold text-[#1A1A2E]">{value}</p>
-            <p className={`mt-1 text-xs ${changeColor}`}>{change}</p>
-          </div>
+            <div className="erp-kpi-card__eyebrow">{item.label}</div>
+            <div className="erp-kpi-card__value">{item.value}</div>
+            <div className="erp-kpi-card__helper">{item.helper}</div>
+          </article>
         ))}
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 mb-6">
-        {/* Attendance chart */}
-        <div className="lg:col-span-2 rounded-xl bg-white border border-gray-100 shadow-sm p-5">
-          <h3 className="mb-4 font-semibold text-[#1A1A2E]">Attendance Trend (This Week)</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={attendanceTrend} barSize={32}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 12, fill: "#4A4A6A" }} axisLine={false} tickLine={false} />
-              <YAxis domain={[80, 100]} tick={{ fontSize: 12, fill: "#4A4A6A" }} axisLine={false} tickLine={false} unit="%" />
-              <Tooltip formatter={(v: number) => [`${v}%`, "Attendance"]} />
-              <Bar dataKey="pct" fill="#2E7DD1" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+      <section className="erp-panel-grid mb-6">
+        <article className="erp-panel">
+          <div className="erp-panel__header">
+            <div>
+              <h3>Attendance Trends</h3>
+              <p className="mt-2 text-sm text-[#667085]">
+                Daily student presence over the last 14 days
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button className="rounded-2xl bg-[#eef2f7] px-4 py-2 text-xs font-semibold text-[#64748b]">
+                Weekly
+              </button>
+              <button className="rounded-2xl bg-[#3525cd] px-4 py-2 text-xs font-semibold text-white shadow-[0_12px_30px_rgba(53,37,205,0.18)]">
+                Monthly
+              </button>
+            </div>
+          </div>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={attendanceTrend}>
+                <XAxis
+                  axisLine={false}
+                  dataKey="day"
+                  tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 700 }}
+                  tickLine={false}
+                />
+                <YAxis hide domain={[0, 100]} />
+                <Tooltip
+                  cursor={{ fill: "rgba(79, 70, 229, 0.05)" }}
+                  formatter={(value: number) => [`${value}%`, "Attendance"]}
+                  contentStyle={{
+                    border: "0",
+                    borderRadius: 18,
+                    boxShadow: "0 12px 40px -12px rgba(25, 28, 29, 0.08)",
+                    background: "rgba(255,255,255,0.96)",
+                  }}
+                />
+                <Bar dataKey="pct" fill="#cfd7fb" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </article>
 
-        {/* Quick Actions */}
-        <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-5">
-          <h3 className="mb-4 font-semibold text-[#1A1A2E]">Quick Actions</h3>
-          <div className="space-y-2">
-            {[
-              { label: "Generate Report Cards", icon: "📄" },
-              { label: "Send Announcement", icon: "📢" },
-              { label: "Fee Overdue List", icon: "💰" },
-              { label: "Emergency Alert", icon: "🚨", danger: true },
-            ].map(({ label, icon, danger }) => (
-              <button key={label}
-                className={`w-full flex items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-left transition ${
-                  danger ? "bg-red-50 text-[#B91C1C] hover:bg-red-100" : "bg-gray-50 text-[#1A1A2E] hover:bg-gray-100"
-                }`}>
-                <span>{icon}</span>{label}
+        <aside className="erp-highlight-list">
+          <div className="flex items-center justify-between gap-3">
+            <h3>Recent Activity</h3>
+            <button className="text-sm font-bold text-[#3525cd]">View All</button>
+          </div>
+          <ul>
+            {activity.map((item) => (
+              <li key={item.title}>
+                <div
+                  className="grid h-12 w-12 flex-none place-items-center rounded-2xl text-sm font-extrabold"
+                  style={{ background: item.tone, color: "#3525cd" }}
+                >
+                  {item.icon}
+                </div>
+                <div>
+                  <div className="font-semibold text-[#191c1d]">{item.title}</div>
+                  <div className="mt-1 text-sm text-[#667085]">{item.detail}</div>
+                  <div className="mt-2 text-xs text-[#94a3b8]">{item.time}</div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </section>
+
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div>
+          <h3 className="mb-4 text-[1.55rem] font-extrabold tracking-[-0.03em] text-[#191c1d]">
+            Quick Actions
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {quickActions.map((item) => (
+              <button
+                key={item.title}
+                className="rounded-[24px] bg-white p-6 text-left shadow-[inset_0_0_0_1px_rgba(119,117,135,0.08),0_12px_40px_-12px_rgba(25,28,29,0.08)] transition hover:-translate-y-0.5"
+                type="button"
+              >
+                <div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#eef2ff] text-sm font-extrabold text-[#3525cd]">
+                  {item.icon}
+                </div>
+                <div className="mt-6 text-lg font-bold text-[#191c1d]">{item.title}</div>
+                <div className="mt-2 text-sm text-[#94a3b8]">{item.caption}</div>
               </button>
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Live Attendance by class */}
-      <div className="rounded-xl bg-white border border-gray-100 shadow-sm p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-[#1A1A2E]">Live Attendance by Class</h3>
-          <span className="flex items-center gap-1.5 text-xs font-medium text-[#1A7A4A] bg-green-50 px-2.5 py-1 rounded-full">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#1A7A4A] animate-pulse" />
-            Live
-          </span>
+        <div>
+          <h3 className="mb-4 text-[1.55rem] font-extrabold tracking-[-0.03em] text-[#191c1d]">
+            Urgent Alerts
+          </h3>
+          <div className="space-y-4">
+            {alerts.map((item) => (
+              <article
+                key={item.title}
+                className="rounded-[24px] p-5 shadow-[inset_0_0_0_1px_rgba(119,117,135,0.08)]"
+                style={{ background: item.bg }}
+              >
+                <div className="text-lg font-bold" style={{ color: item.color }}>
+                  {item.title}
+                </div>
+                <div className="mt-2 text-sm leading-6" style={{ color: item.color }}>
+                  {item.detail}
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {gradeAttendance.map(({ class: cls, present, total }) => {
-            const pct = Math.round((present / total) * 100);
-            const isGood = pct >= 90, isOk = pct >= 75;
-            return (
-              <div key={cls} className={`rounded-xl border p-4 text-center ${isGood ? "bg-green-50 border-green-200" : isOk ? "bg-yellow-50 border-yellow-200" : "bg-red-50 border-red-200"}`}>
-                <p className="text-xs font-medium text-[#4A4A6A] mb-2">{cls}</p>
-                <p className={`text-2xl font-bold ${isGood ? "text-[#1A7A4A]" : isOk ? "text-[#D4600A]" : "text-[#B91C1C]"}`}>{pct}%</p>
-                <p className="text-xs text-[#4A4A6A] mt-1">{present}/{total} present</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      </section>
 
-      {/* Welcome message if new */}
       {user && (
-        <p className="mt-4 text-xs text-[#4A4A6A] text-right">
-          Logged in as <span className="font-medium">{user.name}</span> · {user.role.replace(/_/g, " ")}
+        <p className="mt-6 text-right text-xs text-[#94a3b8]">
+          Logged in as <span className="font-semibold text-[#4b5563]">{user.name}</span> � {user.role.replace(/_/g, " ")}
         </p>
       )}
     </PortalLayout>

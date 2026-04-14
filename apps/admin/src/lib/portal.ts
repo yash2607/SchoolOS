@@ -19,8 +19,8 @@ export const portalMeta: Record<
 > = {
   admin: {
     label: "Admin Console",
-    accent: "#1B3A6B",
-    background: "linear-gradient(180deg, #0f1f3d 0%, #1B3A6B 100%)",
+    accent: "#3525cd",
+    background: "linear-gradient(180deg, #f4f6fb 0%, #eef2ff 100%)",
     nav: [
       { label: "Dashboard", path: "/admin/dashboard", short: "DB" },
       { label: "Students", path: "/admin/students", short: "ST" },
@@ -35,8 +35,8 @@ export const portalMeta: Record<
   },
   parent: {
     label: "Parent Portal",
-    accent: "#0F766E",
-    background: "linear-gradient(180deg, #0b3d3a 0%, #0F766E 100%)",
+    accent: "#0f766e",
+    background: "linear-gradient(180deg, #edfdf8 0%, #f5fffb 100%)",
     nav: [
       { label: "Dashboard", path: "/parent/dashboard", short: "DB" },
       { label: "Academics", path: "/parent/academics", short: "AC" },
@@ -48,8 +48,8 @@ export const portalMeta: Record<
   },
   student: {
     label: "Student Portal",
-    accent: "#7C3AED",
-    background: "linear-gradient(180deg, #3b176b 0%, #7C3AED 100%)",
+    accent: "#5b4cf0",
+    background: "linear-gradient(180deg, #f3f2ff 0%, #f8f7ff 100%)",
     nav: [
       { label: "Dashboard", path: "/student/dashboard", short: "DB" },
       { label: "Academics", path: "/student/academics", short: "AC" },
