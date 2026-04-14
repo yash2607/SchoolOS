@@ -23,14 +23,31 @@ export default function ParentLayout(): React.JSX.Element {
     <Tabs
       screenOptions={{
         tabBarStyle: {
-          backgroundColor: "#FFFFFF",
-          borderTopWidth: 1,
-          borderTopColor: "#E5E7EB",
-          height: 60,
-          paddingBottom: 8,
+          backgroundColor: "#FBF8F2",
+          borderTopWidth: 0,
+          height: 82,
+          paddingTop: 12,
+          paddingBottom: 16,
+          paddingHorizontal: 12,
+          shadowColor: "#0F172A",
+          shadowOpacity: 0.08,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: -4 },
+          elevation: 18,
         },
-        tabBarActiveTintColor: "#2E7DD1",
-        tabBarInactiveTintColor: "#6B7280",
+        tabBarItemStyle: {
+          marginHorizontal: 4,
+          borderRadius: 18,
+          paddingVertical: 6,
+        },
+        tabBarActiveTintColor: "#0F766E",
+        tabBarInactiveTintColor: "#7A8798",
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontWeight: "700",
+          letterSpacing: 0.3,
+        },
+        tabBarActiveBackgroundColor: "rgba(15, 118, 110, 0.1)",
         headerShown: false,
       }}
     >

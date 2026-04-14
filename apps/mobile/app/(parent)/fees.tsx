@@ -39,9 +39,12 @@ export default function FeesScreen(): React.JSX.Element {
 
   if (!activeChildId) {
     return (
-      <View className="flex-1 bg-background">
-        <View className="bg-surface px-4 pt-12 pb-4 border-b border-gray-100">
-          <Text className="text-2xl font-bold text-text-primary">Fees</Text>
+      <View className="flex-1 bg-[#F4EFE6]">
+        <View className="mx-4 mt-12 rounded-[30px] bg-[#102A43] px-5 py-5">
+          <Text className="text-xs font-bold uppercase tracking-[1.2px] text-[#F0B429]">
+            Premium ERP
+          </Text>
+          <Text className="mt-2 text-3xl font-black text-white">Fees</Text>
         </View>
         <EmptyState
           icon={<Ionicons name="people-outline" size={48} color="#2E7DD1" />}
@@ -54,7 +57,7 @@ export default function FeesScreen(): React.JSX.Element {
 
   if (isLoading) {
     return (
-      <ScrollView className="flex-1 bg-background" contentContainerStyle={{ padding: 16 }}>
+      <ScrollView className="flex-1 bg-[#F4EFE6]" contentContainerStyle={{ padding: 16, paddingTop: 56 }}>
         <View className="gap-3">
           {Array.from({ length: 4 }).map((_, index) => (
             <SkeletonLoader key={index} variant="card" />
@@ -66,16 +69,19 @@ export default function FeesScreen(): React.JSX.Element {
 
   return (
     <ScrollView
-      className="flex-1 bg-background"
+      className="flex-1 bg-[#F4EFE6]"
       contentContainerStyle={{ paddingBottom: 24 }}
       refreshControl={
         <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
       }
     >
-      <View className="bg-surface px-4 pt-12 pb-4 border-b border-gray-100">
-        <Text className="text-2xl font-bold text-text-primary">Fees</Text>
+      <View className="mx-4 mt-12 rounded-[30px] bg-[#102A43] px-5 py-5">
+        <Text className="text-xs font-bold uppercase tracking-[1.2px] text-[#F0B429]">
+          Fee Center
+        </Text>
+        <Text className="mt-2 text-3xl font-black text-white">Fees</Text>
         {activeChild && (
-          <Text className="text-text-secondary text-sm mt-1">
+          <Text className="mt-2 text-sm text-[#BCCCDC]">
             {activeChild.fullName}
           </Text>
         )}
@@ -87,27 +93,27 @@ export default function FeesScreen(): React.JSX.Element {
             <Card
               padding="lg"
               style={{
-                backgroundColor: "#F8FAFC",
-                borderWidth: 1,
-                borderColor: "#E2E8F0",
+                backgroundColor: "#FFFFFF",
+                borderWidth: 0,
+                borderRadius: 28,
               }}
             >
-              <Text className="text-sm font-semibold text-text-secondary mb-2">
+              <Text className="text-xs font-bold uppercase tracking-[1.2px] text-[#627D98] mb-2">
                 Outstanding Balance
               </Text>
-              <Text className="text-3xl font-bold text-text-primary">
+              <Text className="text-4xl font-black text-[#102A43]">
                 {formatINR(summary?.outstanding ?? account?.outstandingAmount ?? 0)}
               </Text>
               <View className="flex-row mt-4 gap-3">
-                <View className="flex-1 rounded-xl bg-white px-3 py-3">
-                  <Text className="text-xs text-text-secondary">Total due</Text>
-                  <Text className="text-base font-bold text-text-primary mt-1">
+                <View className="flex-1 rounded-[22px] bg-[#F8FAFC] px-3 py-4">
+                  <Text className="text-xs font-bold uppercase tracking-[1px] text-[#627D98]">Total due</Text>
+                  <Text className="text-base font-black text-[#102A43] mt-2">
                     {formatINR(summary?.totalDue ?? account?.totalAmount ?? 0)}
                   </Text>
                 </View>
-                <View className="flex-1 rounded-xl bg-white px-3 py-3">
-                  <Text className="text-xs text-text-secondary">Paid</Text>
-                  <Text className="text-base font-bold text-success mt-1">
+                <View className="flex-1 rounded-[22px] bg-[#ECFDF5] px-3 py-4">
+                  <Text className="text-xs font-bold uppercase tracking-[1px] text-[#0F766E]">Paid</Text>
+                  <Text className="text-base font-black text-success mt-2">
                     {formatINR(summary?.totalPaid ?? account?.paidAmount ?? 0)}
                   </Text>
                 </View>
@@ -117,24 +123,28 @@ export default function FeesScreen(): React.JSX.Element {
             {summary?.nextInstallment && (
               <Card
                 padding="md"
-                style={{ borderLeftWidth: 4, borderLeftColor: "#D4600A" }}
+                style={{
+                  borderLeftWidth: 4,
+                  borderLeftColor: "#D4600A",
+                  borderRadius: 28,
+                }}
                 onPress={() =>
                   router.push(`/(parent)/fees/pay/${summary.nextInstallment?.id}`)
                 }
               >
                 <View className="flex-row items-start justify-between">
                   <View className="flex-1 pr-3">
-                    <Text className="text-sm font-semibold text-warning mb-1">
+                    <Text className="text-xs font-bold uppercase tracking-[1px] text-warning mb-1">
                       Next Payment
                     </Text>
-                    <Text className="text-lg font-bold text-text-primary">
+                    <Text className="text-xl font-black text-[#102A43]">
                       {summary.nextInstallment.feeHeadName}
                     </Text>
-                    <Text className="text-sm text-text-secondary mt-1">
+                    <Text className="text-sm text-[#627D98] mt-1">
                       Due {formatDate(summary.nextInstallment.dueDate)}
                     </Text>
                   </View>
-                  <Text className="text-lg font-bold text-text-primary">
+                  <Text className="text-lg font-black text-[#102A43]">
                     {formatINR(summary.nextInstallment.amount)}
                   </Text>
                 </View>
@@ -142,7 +152,7 @@ export default function FeesScreen(): React.JSX.Element {
             )}
 
             <View className="mt-1">
-              <Text className="text-base font-bold text-text-primary mb-3">
+              <Text className="text-base font-black text-[#102A43] mb-3">
                 Installments
               </Text>
               <View className="gap-3">
@@ -158,6 +168,7 @@ export default function FeesScreen(): React.JSX.Element {
                       <Card
                         key={installment.id}
                         padding="md"
+                        style={{ borderRadius: 24 }}
                         onPress={
                           canPay
                             ? () => router.push(`/(parent)/fees/pay/${installment.id}`)
@@ -166,20 +177,20 @@ export default function FeesScreen(): React.JSX.Element {
                       >
                         <View className="flex-row items-start justify-between">
                           <View className="flex-1 pr-3">
-                            <Text className="text-base font-semibold text-text-primary">
+                            <Text className="text-base font-bold text-[#102A43]">
                               {installment.feeHeadName}
                             </Text>
-                            <Text className="text-sm text-text-secondary mt-1">
+                            <Text className="text-sm text-[#627D98] mt-1">
                               Due {formatDate(installment.dueDate)}
                             </Text>
                             {installment.paymentReference && (
-                              <Text className="text-xs text-text-secondary mt-1">
+                              <Text className="text-xs text-[#829AB1] mt-1">
                                 Ref: {installment.paymentReference}
                               </Text>
                             )}
                           </View>
                           <View className="items-end gap-2">
-                            <Text className="text-base font-bold text-text-primary">
+                            <Text className="text-base font-black text-[#102A43]">
                               {formatINR(installment.amount + installment.lateFeeApplied)}
                             </Text>
                             <Badge label={meta.label} color={meta.color} size="sm" />
