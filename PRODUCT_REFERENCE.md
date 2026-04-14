@@ -1,4 +1,4 @@
-# SchoolOS Product Reference
+ï»¿# SchoolOS Product Reference
 
 Single source of truth for product scope, current implementation, MVP definition, and future roadmap.
 
@@ -34,7 +34,7 @@ This section describes what exists now in the repo and what is actually usable.
 | Surface | Location | Current state |
 |---|---|---|
 | Mobile app | `apps/mobile` | Working Expo app with role routing, live auth, parent experience partly wired, teacher and admin areas partly implemented |
-| Web app | `apps/admin` | Premium ERP shell and multiple pages exist; mix of scaffolded and wired screens |
+| Web app | `apps/admin` | Premium imported SchoolOS-style ERP shell with multiple admin modules now visually rebuilt and several key screens wired to live APIs |
 | Backend | `backend/services/*` | Multi-service NestJS setup exists and runs behind nginx/supervisord |
 
 ### 3.2 Backend Services Present
@@ -78,13 +78,17 @@ Based on the current codebase and recent updates:
 - parent mobile fees and academics screens have upgraded UI
 - parent mobile tabs have an upgraded premium shell
 - admin web shell has a premium ERP redesign
+- admin web students screen now reads live student data and supports real enrollment plus quick profile updates
+- admin web communication screen now lists and creates live announcements and shows live message threads
+- admin web finance screen now uses live collection-report and overdue-invoice backend data
+- admin web dashboard, students, academics, communication, finance, and timetable screens now follow the imported premium SchoolOS UI direction
 - backend auth startup path was fixed
 - Railway internal port conflicts were fixed
 
 ### 3.5 Known Partial Areas
 
 - some teacher mobile flows exist but are still uneven in completeness
-- some admin web pages are scaffolded but not fully wired to live APIs
+- some admin web pages are now premium and wired, but timetable CRUD, fee-structure CRUD, and deeper SIS profile flows still need more backend integration
 - AI, reporting, and some advanced workflows are still mostly planned
 - notifications, storage, and payment infrastructure are only partly wired
 
@@ -190,14 +194,14 @@ Status legend:
 | Teacher attendance | Partial | Multiple teacher attendance routes exist |
 | Teacher assignments and gradebook | Partial | Routes exist, maturity still uneven |
 | Admin mobile quick access | Partial | Basic route structure exists |
-| Admin web shell and core pages | Partial | Premium shell exists, page completeness varies |
+| Admin web shell and core pages | Live | Premium imported SchoolOS-style shell and core admin pages are now in active use |
 | Parent web portal | Partial | Multiple pages exist |
 | Student web portal | Partial | Multiple pages exist |
-| Student information system | Partial | Student service exists, feature completeness still growing |
+| Student information system | Partial | Live admin list, student enrollment, and quick profile updates now exist; deeper profile and guardian flows still growing |
 | Attendance backend | Partial | Service exists |
 | Academics backend | Partial | Service exists |
-| Finance backend | Partial | Service exists |
-| Communication backend | Partial | Service exists |
+| Finance backend | Partial | Live collection and overdue data are now wired into admin web; CRUD and richer joins still remain |
+| Communication backend | Partial | Live announcements and thread visibility are now wired into admin web; deeper moderation and automation remain |
 | Notifications | Partial | Service exists; full delivery workflows still growing |
 | AI features | Planned | AI service exists, product features still mostly roadmap |
 | Reporting | Planned | Service exists, advanced product layer still roadmap |
@@ -255,10 +259,14 @@ One school should be able to:
 - role-aware mobile app routing
 - backend service split by domain
 - premium UI direction established on web and parent mobile
+- imported premium SchoolOS admin UI direction is now applied across the main admin modules
+- communication admin workflows now have live announcement create/list support
+- SIS admin now supports live student enrollment and quick support or status updates
+- finance admin now surfaces live collection reports and overdue fee visibility
 
 ### 8.2 Still Needed for a Fully Usable First-School MVP
 
-- stronger admin web wiring for school setup and operational workflows
+- stronger admin web wiring for school setup, fee actions, and timetable authoring
 - consistent teacher workflow completion
 - full guardian and child linkage confidence
 - production-ready fee and payment flow depth
@@ -301,7 +309,8 @@ Scope:
 Current state:
 
 - foundational structure exists
-- still needs stronger end-to-end admin workflows
+- admin web now has a premium live SIS screen with student list, enrollment, and quick profile mutations
+- still needs stronger guardian, transfer, and full-profile workflows
 
 ### 9.3 Attendance
 
@@ -344,7 +353,8 @@ Current state:
 
 - parent surfaces exist
 - finance service exists
-- full payment and reconciliation maturity still in progress
+- admin web now consumes live collection reports and overdue invoice data
+- full invoice-generation, fee-structure editing, and reconciliation maturity still in progress
 
 ### 9.6 Communication
 
@@ -357,6 +367,7 @@ Scope:
 Current state:
 
 - service and UI surfaces exist
+- admin web now creates and lists live announcements and shows live message threads
 - full product depth is still incomplete
 
 ### 9.7 Timetable and Calendar
@@ -370,6 +381,7 @@ Scope:
 Current state:
 
 - routes and services exist
+- premium timetable UI is in place on admin web
 - still needs more complete authoring and management flows
 
 ### 9.8 AI
@@ -402,6 +414,7 @@ Design principles:
 Recent visual direction already established:
 
 - premium admin web shell
+- imported SchoolOS premium admin page compositions across dashboard, students, finance, communication, academics, and timetable
 - premium parent mobile auth flow
 - premium parent mobile dashboard and key screens
 
@@ -428,26 +441,26 @@ These are the active product engineering defaults in this repo.
 ```text
 SchoolOS/
 +-- apps/
-¦   +-- admin/
-¦   +-- mobile/
+Â¦   +-- admin/
+Â¦   +-- mobile/
 +-- backend/
-¦   +-- services/
-¦       +-- academic/
-¦       +-- ai/
-¦       +-- attendance/
-¦       +-- auth/
-¦       +-- communication/
-¦       +-- finance/
-¦       +-- notification/
-¦       +-- reporting/
-¦       +-- student/
-¦       +-- timetable/
+Â¦   +-- services/
+Â¦       +-- academic/
+Â¦       +-- ai/
+Â¦       +-- attendance/
+Â¦       +-- auth/
+Â¦       +-- communication/
+Â¦       +-- finance/
+Â¦       +-- notification/
+Â¦       +-- reporting/
+Â¦       +-- student/
+Â¦       +-- timetable/
 +-- packages/
-¦   +-- api/
-¦   +-- config/
-¦   +-- types/
-¦   +-- ui/
-¦   +-- utils/
+Â¦   +-- api/
+Â¦   +-- config/
+Â¦   +-- types/
+Â¦   +-- ui/
+Â¦   +-- utils/
 +-- docker/
 ```
 
@@ -488,6 +501,7 @@ These are the next most valuable product steps.
 - complete school setup and SIS workflows in admin web
 - finish teacher daily workflows end to end
 - harden parent attendance, fees, and messages
+- complete timetable and finance admin actions on top of the new live dashboards
 - improve guardian-child linking and demo data quality
 - add critical testing around auth, attendance, and payments
 
@@ -553,3 +567,4 @@ Use this file for:
 - implementation direction
 
 Do not create separate tracked PRD or roadmap markdown files unless this file is intentionally split in the future.
+
