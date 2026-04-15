@@ -17,6 +17,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true, unique: true })
   mobileE164: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  passwordHash: string | null;
+
   @Column({ type: 'varchar', default: 'PARENT' })
   role: UserRole;
 

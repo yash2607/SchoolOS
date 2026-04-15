@@ -1,7 +1,7 @@
 import "./lib/api.js";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute } from "./components/ProtectedRoute.js";
-import { LoginPage } from "./pages/Login.js";
+import { LoginModernPage } from "./pages/LoginModern.js";
 import { DashboardPage } from "./pages/Dashboard.js";
 import { StudentsPage } from "./pages/Students.js";
 import { TeachersPage } from "./pages/Teachers.js";
@@ -30,7 +30,7 @@ export default function App(): React.JSX.Element {
 
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<LoginModernPage />} />
       <Route path="/admin/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
       <Route path="/admin/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
       <Route path="/admin/teachers" element={<ProtectedRoute><TeachersPage /></ProtectedRoute>} />

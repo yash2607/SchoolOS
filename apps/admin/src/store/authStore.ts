@@ -8,6 +8,7 @@ import type { UserRole } from "@schoolos/types";
 export interface AdminUser {
   id: string;
   name: string;
+  email: string | null;
   mobileE164: string | null;
   role: UserRole;
   schoolId: string;

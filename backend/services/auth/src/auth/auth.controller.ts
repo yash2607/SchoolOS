@@ -1,6 +1,8 @@
 import { Controller, Post, Get, Body, Headers, UseGuards, Request } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { LoginDto } from './dto/login.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -20,6 +22,23 @@ export class AuthController {
   @ApiOperation({ summary: 'Verify OTP and get tokens' })
   verifyOtp(@Body() dto: VerifyOtpDto) {
     return this.authService.verifyOtp(dto.mobile, dto.otp, dto.schoolCode);
+  }
+
+  @Post('login')
+  @ApiOperation({ summary: 'Login with email or phone number and password' })
+  login(@Body() dto: LoginDto) {
+    return this.authService.loginWithPassword(dto.identifier, dto.password, dto.schoolCode);
+  }
+
+  @Post('password/reset')
+  @ApiOperation({ summary: 'Set or reset password using phone OTP' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPasswordWithOtp(
+      dto.mobile,
+      dto.otp,
+      dto.newPassword,
+      dto.schoolCode,
+    );
   }
 
   @Get('me')
