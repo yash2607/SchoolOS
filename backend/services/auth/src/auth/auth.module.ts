@@ -8,6 +8,7 @@ import { OtpService } from './otp.service';
 import { JwtTokenService } from './jwt-token.service';
 import { JwtStrategy } from './jwt.strategy';
 import { RedisProvider } from './redis.provider';
+import { DemoUsersService } from './demo-users.service';
 import { User } from '../entities/user.entity';
 import { School } from '../entities/school.entity';
 import { Session } from '../entities/session.entity';
@@ -25,6 +26,7 @@ import { Session } from '../entities/session.entity';
     JwtTokenService,
     JwtStrategy,
     RedisProvider,
+    DemoUsersService,
   ],
 })
 export class AuthModule {}
