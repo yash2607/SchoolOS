@@ -30,6 +30,24 @@ export const apiClient: AxiosInstance = axios.create({
   },
 });
 
+function hasApiErrorShape(data: unknown): data is ApiError {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "error" in data &&
+    typeof data.error === "object" &&
+    data.error !== null &&
+    "message" in data.error &&
+    typeof data.error.message === "string"
+  );
+}
+
+function hasMessageShape(
+  data: unknown
+): data is { message?: string | string[]; error?: { message?: string } } {
+  return typeof data === "object" && data !== null;
+}
+
 // Request interceptor: attach Bearer token
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -123,14 +141,12 @@ apiClient.interceptors.response.use(
 
 export function extractApiError(error: unknown): ApiError {
   if (axios.isAxiosError(error)) {
-    const data = error.response?.data as
-      | ApiError
-      | { message?: string | string[]; error?: { message?: string } }
-      | undefined;
+    const data = error.response?.data;
 
     const message =
-      (typeof data === "object" && data && "error" in data && data.error?.message) ||
-      (typeof data === "object" && data && "message" in data
+      (hasApiErrorShape(data) ? data.error.message : undefined) ||
+      (hasMessageShape(data) && data.error?.message) ||
+      (hasMessageShape(data) && "message" in data
         ? Array.isArray(data.message)
           ? data.message.join(", ")
           : data.message
@@ -141,17 +157,14 @@ export function extractApiError(error: unknown): ApiError {
 
     return {
       error: {
-        code:
-          (typeof data === "object" && data && "error" in data && data.error?.code) ||
-          "UNKNOWN_ERROR",
+        code: hasApiErrorShape(data) ? data.error.code : "UNKNOWN_ERROR",
         message,
-        details:
-          typeof data === "object" && data && "error" in data ? data.error?.details : undefined,
-        requestId:
-          (typeof data === "object" && data && "error" in data && data.error?.requestId) || "",
+        requestId: hasApiErrorShape(data) ? data.error.requestId : "",
         timestamp:
-          (typeof data === "object" && data && "error" in data && data.error?.timestamp) ||
-          new Date().toISOString(),
+          hasApiErrorShape(data) ? data.error.timestamp : new Date().toISOString(),
+        ...(hasApiErrorShape(data) && data.error.details
+          ? { details: data.error.details }
+          : {}),
       },
     };
   }
