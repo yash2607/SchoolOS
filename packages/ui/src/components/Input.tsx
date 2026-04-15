@@ -4,6 +4,7 @@ import {
   Text,
   TextInput,
   Animated,
+  TouchableOpacity,
   type TextInputProps,
   type KeyboardType,
 } from "react-native";
@@ -23,6 +24,8 @@ export interface InputProps {
   numberOfLines?: number;
   autoCapitalize?: TextInputProps["autoCapitalize"];
   autoComplete?: TextInputProps["autoComplete"];
+  rightActionLabel?: string;
+  onRightActionPress?: () => void;
 }
 
 export function Input({
@@ -40,6 +43,8 @@ export function Input({
   numberOfLines = 1,
   autoCapitalize = "sentences",
   autoComplete,
+  rightActionLabel,
+  onRightActionPress,
 }: InputProps): React.JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const labelAnim = useRef(
@@ -137,6 +142,19 @@ export function Input({
             accessibilityLabel={label ?? placeholder}
           />
         </View>
+        {rightActionLabel && onRightActionPress ? (
+          <TouchableOpacity
+            onPress={onRightActionPress}
+            disabled={disabled}
+            className="ml-2 self-center rounded-full px-2 py-1"
+            accessibilityRole="button"
+            accessibilityLabel={rightActionLabel}
+          >
+            <Text className="text-xs font-bold uppercase tracking-[1px] text-[#2E7DD1]">
+              {rightActionLabel}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
       {error && (
         <Text className="text-[#B91C1C] text-sm mt-1 ml-1">{error}</Text>

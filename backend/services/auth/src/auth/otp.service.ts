@@ -86,12 +86,14 @@ export class OtpService {
     code: string,
   ): Promise<{ valid: boolean; reason?: string }> {
     const raw = await this.redis.get(this.redisKey(mobile));
-    if (!raw) return { valid: false, reason: 'OTP expired or not sent' };
+    if (!raw) {
+      return { valid: false, reason: 'OTP expired. Request a new one to continue.' };
+    }
 
     const data: OtpData = JSON.parse(raw) as OtpData;
 
     if (data.attempts >= MAX_ATTEMPTS) {
-      return { valid: false, reason: 'Too many attempts. Request a new OTP.' };
+      return { valid: false, reason: 'Too many incorrect attempts. Request a fresh OTP.' };
     }
 
     if (data.otp !== code) {
@@ -103,7 +105,7 @@ export class OtpService {
         'EX',
         ttl > 0 ? ttl : OTP_TTL_SECONDS,
       );
-      return { valid: false, reason: 'Invalid OTP' };
+      return { valid: false, reason: 'The OTP you entered is incorrect. Please try again.' };
     }
 
     // Correct — delete it so it can't be reused

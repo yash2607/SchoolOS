@@ -122,8 +122,38 @@ apiClient.interceptors.response.use(
 );
 
 export function extractApiError(error: unknown): ApiError {
-  if (axios.isAxiosError(error) && error.response?.data) {
-    return error.response.data as ApiError;
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data as
+      | ApiError
+      | { message?: string | string[]; error?: { message?: string } }
+      | undefined;
+
+    const message =
+      (typeof data === "object" && data && "error" in data && data.error?.message) ||
+      (typeof data === "object" && data && "message" in data
+        ? Array.isArray(data.message)
+          ? data.message.join(", ")
+          : data.message
+        : undefined) ||
+      error.message ||
+      (error.request ? "Unable to reach the server. Check your connection and try again." : undefined) ||
+      "An unexpected error occurred";
+
+    return {
+      error: {
+        code:
+          (typeof data === "object" && data && "error" in data && data.error?.code) ||
+          "UNKNOWN_ERROR",
+        message,
+        details:
+          typeof data === "object" && data && "error" in data ? data.error?.details : undefined,
+        requestId:
+          (typeof data === "object" && data && "error" in data && data.error?.requestId) || "",
+        timestamp:
+          (typeof data === "object" && data && "error" in data && data.error?.timestamp) ||
+          new Date().toISOString(),
+      },
+    };
   }
   return {
     error: {

@@ -38,6 +38,10 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
   const [resetStage, setResetStage] = useState<"request" | "verify">("request");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const loadParentChildren = async () => {
     try {
@@ -89,6 +93,7 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
 
   const handlePasswordLogin = async () => {
     setError(null);
+    setInfo(null);
 
     if (!identifier.trim()) {
       setError("Enter your school email address or phone number");
@@ -113,6 +118,7 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
         password,
       });
 
+      setInfo("Login successful. Opening your workspace...");
       await completeLogin(response.data);
     } catch (err) {
       setError(extractApiError(err).error.message);
@@ -123,6 +129,7 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
 
   const handleSendOtp = async () => {
     setError(null);
+    setInfo(null);
     const normalized = mobile.startsWith("+91") ? mobile : `+91${mobile}`;
 
     if (!/^\+91[6-9]\d{9}$/.test(normalized)) {
@@ -133,6 +140,7 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
     setLoading(true);
     try {
       await apiClient.post("/api/v1/auth/otp/send", { mobile: normalized });
+      setInfo("OTP sent successfully. Enter the code on the next screen.");
       router.push({ pathname: "/(auth)/otp", params: { mobile: normalized } });
     } catch (err) {
       setError(extractApiError(err).error.message);
@@ -143,6 +151,7 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
 
   const handleSendResetOtp = async () => {
     setError(null);
+    setInfo(null);
     const normalized = resetMobile.startsWith("+91") ? resetMobile : `+91${resetMobile}`;
 
     if (!/^\+91[6-9]\d{9}$/.test(normalized)) {
@@ -154,6 +163,7 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
     try {
       await apiClient.post("/api/v1/auth/otp/send", { mobile: normalized });
       setResetStage("verify");
+      setInfo("OTP sent. Enter it below and create your new password.");
     } catch (err) {
       setError(extractApiError(err).error.message);
     } finally {
@@ -163,6 +173,7 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
 
   const handleResetPassword = async () => {
     setError(null);
+    setInfo(null);
     const normalized = resetMobile.startsWith("+91") ? resetMobile : `+91${resetMobile}`;
 
     if (!/^\+91[6-9]\d{9}$/.test(normalized)) {
@@ -199,7 +210,31 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
         newPassword,
       });
 
+      setInfo("Password updated successfully. Signing you in...");
+      await new Promise((resolve) => setTimeout(resolve, 650));
       await completeLogin(response.data);
+    } catch (err) {
+      setError(extractApiError(err).error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendResetOtp = async () => {
+    setError(null);
+    setInfo(null);
+    const normalized = resetMobile.startsWith("+91") ? resetMobile : `+91${resetMobile}`;
+
+    if (!/^\+91[6-9]\d{9}$/.test(normalized)) {
+      setError("Please enter a valid 10-digit Indian mobile number");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await apiClient.post("/api/v1/auth/otp/send", { mobile: normalized });
+      setResetOtp("");
+      setInfo("A fresh OTP is on the way.");
     } catch (err) {
       setError(extractApiError(err).error.message);
     } finally {
@@ -356,15 +391,28 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
                         value={password}
                         onChangeText={setPassword}
                         placeholder="Enter your password"
-                        secureTextEntry
+                        secureTextEntry={!showPassword}
                         autoCapitalize="none"
                       />
                     </View>
+                    <TouchableOpacity
+                      onPress={() => setShowPassword((value) => !value)}
+                      className="mt-2 self-end"
+                    >
+                      <Text className="text-xs font-bold uppercase tracking-[1px] text-[#2E7DD1]">
+                        {showPassword ? "Hide" : "Show"} password
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
                   {error && (
                     <View className="mt-4 rounded-[18px] border border-[#F7C7C9] bg-[#FFF1F2] px-4 py-3">
                       <Text className="text-sm font-medium text-[#C53030]">{error}</Text>
+                    </View>
+                  )}
+                  {info && (
+                    <View className="mt-4 rounded-[18px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
+                      <Text className="text-sm font-medium text-[#1E40AF]">{info}</Text>
                     </View>
                   )}
 
@@ -381,6 +429,12 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
                       }}
                     />
                   </View>
+
+                  <TouchableOpacity onPress={() => setMode("reset")} className="mt-4 items-center">
+                    <Text className="text-sm font-bold text-[#4338CA]">
+                      Forgot password? Set it with OTP
+                    </Text>
+                  </TouchableOpacity>
                 </>
               ) : mode === "otp" ? (
                 <>
@@ -416,6 +470,11 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
                   {error && (
                     <View className="mt-4 rounded-[18px] border border-[#F7C7C9] bg-[#FFF1F2] px-4 py-3">
                       <Text className="text-sm font-medium text-[#C53030]">{error}</Text>
+                    </View>
+                  )}
+                  {info && (
+                    <View className="mt-4 rounded-[18px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
+                      <Text className="text-sm font-medium text-[#1E40AF]">{info}</Text>
                     </View>
                   )}
 
@@ -472,6 +531,11 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
                           <Text className="text-sm font-medium text-[#C53030]">{error}</Text>
                         </View>
                       )}
+                      {info && (
+                        <View className="mt-4 rounded-[18px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
+                          <Text className="text-sm font-medium text-[#1E40AF]">{info}</Text>
+                        </View>
+                      )}
 
                       <View className="mt-6">
                         <Button
@@ -514,10 +578,18 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
                             value={newPassword}
                             onChangeText={setNewPassword}
                             placeholder="Create a strong password"
-                            secureTextEntry
+                            secureTextEntry={!showNewPassword}
                             autoCapitalize="none"
                           />
                         </View>
+                        <TouchableOpacity
+                          onPress={() => setShowNewPassword((value) => !value)}
+                          className="mt-2 self-end"
+                        >
+                          <Text className="text-xs font-bold uppercase tracking-[1px] text-[#2E7DD1]">
+                            {showNewPassword ? "Hide" : "Show"} password
+                          </Text>
+                        </TouchableOpacity>
                       </View>
 
                       <View className="mt-4">
@@ -529,15 +601,28 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
                             value={confirmPassword}
                             onChangeText={setConfirmPassword}
                             placeholder="Re-enter your password"
-                            secureTextEntry
+                            secureTextEntry={!showConfirmPassword}
                             autoCapitalize="none"
                           />
                         </View>
+                        <TouchableOpacity
+                          onPress={() => setShowConfirmPassword((value) => !value)}
+                          className="mt-2 self-end"
+                        >
+                          <Text className="text-xs font-bold uppercase tracking-[1px] text-[#2E7DD1]">
+                            {showConfirmPassword ? "Hide" : "Show"} password
+                          </Text>
+                        </TouchableOpacity>
                       </View>
 
                       {error && (
                         <View className="mt-4 rounded-[18px] border border-[#F7C7C9] bg-[#FFF1F2] px-4 py-3">
                           <Text className="text-sm font-medium text-[#C53030]">{error}</Text>
+                        </View>
+                      )}
+                      {info && (
+                        <View className="mt-4 rounded-[18px] border border-[#BFDBFE] bg-[#EFF6FF] px-4 py-3">
+                          <Text className="text-sm font-medium text-[#1E40AF]">{info}</Text>
                         </View>
                       )}
 
@@ -562,10 +647,14 @@ export default function PremiumLoginScreenModern(): React.JSX.Element {
                           setNewPassword("");
                           setConfirmPassword("");
                           setError(null);
+                          setInfo(null);
                         }}
                         className="mt-4 items-center"
                       >
                         <Text className="text-sm font-bold text-[#7C3AED]">Use a different number</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleResendResetOtp} className="mt-3 items-center">
+                        <Text className="text-sm font-bold text-[#4338CA]">Resend OTP</Text>
                       </TouchableOpacity>
                     </>
                   )}

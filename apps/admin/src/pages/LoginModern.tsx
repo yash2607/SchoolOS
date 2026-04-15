@@ -185,7 +185,7 @@ const S: Record<string, CSSProperties> = {
   subtitle: { margin: 0, color: "#475569", fontSize: 15, lineHeight: 1.7 },
   modeRow: {
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
     gap: 10,
     marginTop: 28,
     padding: 8,
@@ -232,6 +232,36 @@ const S: Record<string, CSSProperties> = {
     fontSize: 15,
     color: "#0F172A",
     outline: "none",
+  },
+  inputWrap: {
+    display: "grid",
+    gridTemplateColumns: "1fr auto",
+    alignItems: "center",
+    borderRadius: 18,
+    border: "1px solid #CBD5E1",
+    background: "#F8FAFC",
+    overflow: "hidden",
+  },
+  inputInner: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "none",
+    background: "transparent",
+    padding: "15px 16px",
+    fontSize: 15,
+    color: "#0F172A",
+    outline: "none",
+  },
+  inputToggle: {
+    border: "none",
+    background: "transparent",
+    color: "#4338CA",
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+    padding: "0 16px",
+    cursor: "pointer",
   },
   phoneWrap: {
     display: "grid",
@@ -325,9 +355,37 @@ const S: Record<string, CSSProperties> = {
     textAlign: "center",
   },
   formActions: { display: "grid", gap: 12 },
+  textLink: {
+    border: "none",
+    background: "transparent",
+    color: "#4338CA",
+    fontSize: 13,
+    fontWeight: 800,
+    padding: 0,
+    cursor: "pointer",
+    justifySelf: "start",
+  },
 };
 
 const formatIndianMobile = (raw: string) => `+91${raw.replace(/\D/g, "").slice(0, 10)}`;
+const getErrorMessage = (error: unknown, fallback: string) => {
+  const candidate = error as {
+    response?: { data?: { error?: { message?: string }; message?: string | string[] } };
+    message?: string;
+  };
+
+  const responseMessage =
+    candidate?.response?.data?.error?.message ??
+    (Array.isArray(candidate?.response?.data?.message)
+      ? candidate.response?.data?.message.join(", ")
+      : candidate?.response?.data?.message);
+
+  if (typeof responseMessage === "string" && responseMessage.trim()) return responseMessage;
+  if (candidate?.message && !candidate.message.startsWith("Request failed with status code")) {
+    return candidate.message;
+  }
+  return fallback;
+};
 
 export function LoginModernPage(): React.JSX.Element {
   const navigate = useNavigate();
@@ -351,6 +409,9 @@ export function LoginModernPage(): React.JSX.Element {
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const resetOtpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
@@ -384,6 +445,10 @@ export function LoginModernPage(): React.JSX.Element {
     setInfo("");
     if (nextMode === "password") {
       resetOtpFlow();
+    } else if (nextMode === "reset") {
+      resetOtpFlow();
+    } else {
+      resetPasswordFlow();
     }
   };
 
@@ -438,10 +503,10 @@ export function LoginModernPage(): React.JSX.Element {
         password,
         schoolCode: schoolCode.trim() || undefined,
       });
+      setInfo("Login successful. Opening your workspace...");
       await completeLogin(data);
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(apiError?.response?.data?.message ?? apiError?.message ?? "Unable to sign in right now.");
+      setError(getErrorMessage(err, "Unable to sign in right now."));
     } finally {
       setLoading(false);
     }
@@ -468,8 +533,7 @@ export function LoginModernPage(): React.JSX.Element {
       setInfo("OTP sent successfully. Enter the 6-digit code from WhatsApp.");
       setTimeout(() => otpRefs.current[0]?.focus(), 80);
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(apiError?.response?.data?.message ?? apiError?.message ?? "Unable to send OTP right now.");
+      setError(getErrorMessage(err, "Unable to send OTP right now."));
     } finally {
       setLoading(false);
     }
@@ -514,10 +578,10 @@ export function LoginModernPage(): React.JSX.Element {
         otp: code,
         schoolCode: schoolCode.trim() || undefined,
       });
+      setInfo("OTP verified. Opening your workspace...");
       await completeLogin(data);
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(apiError?.response?.data?.message ?? apiError?.message ?? "Invalid OTP.");
+      setError(getErrorMessage(err, "The OTP you entered is incorrect. Please try again."));
       setOtp(["", "", "", "", "", ""]);
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } finally {
@@ -540,8 +604,7 @@ export function LoginModernPage(): React.JSX.Element {
       setInfo("A fresh OTP is on its way to your WhatsApp number.");
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(apiError?.response?.data?.message ?? apiError?.message ?? "Failed to resend OTP.");
+      setError(getErrorMessage(err, "Failed to resend OTP."));
     } finally {
       setLoading(false);
     }
@@ -568,8 +631,7 @@ export function LoginModernPage(): React.JSX.Element {
       setInfo("OTP sent. Verify it and choose your new password.");
       setTimeout(() => resetOtpRefs.current[0]?.focus(), 80);
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(apiError?.response?.data?.message ?? apiError?.message ?? "Unable to send OTP right now.");
+      setError(getErrorMessage(err, "Unable to send OTP right now."));
     } finally {
       setLoading(false);
     }
@@ -624,10 +686,11 @@ export function LoginModernPage(): React.JSX.Element {
         newPassword,
         schoolCode: schoolCode.trim() || undefined,
       });
+      setInfo("Password updated successfully. Signing you in...");
+      await new Promise((resolve) => setTimeout(resolve, 650));
       await completeLogin(data);
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(apiError?.response?.data?.message ?? apiError?.message ?? "Unable to set password right now.");
+      setError(getErrorMessage(err, "Unable to set password right now."));
     } finally {
       setLoading(false);
     }
@@ -648,8 +711,7 @@ export function LoginModernPage(): React.JSX.Element {
       setInfo("A fresh OTP has been sent for password setup.");
       setTimeout(() => resetOtpRefs.current[0]?.focus(), 50);
     } catch (err: unknown) {
-      const apiError = err as { response?: { data?: { message?: string } }; message?: string };
-      setError(apiError?.response?.data?.message ?? apiError?.message ?? "Failed to resend OTP.");
+      setError(getErrorMessage(err, "Failed to resend OTP."));
     } finally {
       setLoading(false);
     }
@@ -765,7 +827,10 @@ export function LoginModernPage(): React.JSX.Element {
                         value={identifier}
                         autoFocus
                         placeholder="admin@schoolos.app or 9876543210"
-                        onChange={(event) => setIdentifier(event.target.value)}
+                        onChange={(event) => {
+                          setIdentifier(event.target.value);
+                          setError("");
+                        }}
                       />
                     </div>
 
@@ -774,13 +839,25 @@ export function LoginModernPage(): React.JSX.Element {
                         <label style={S.label}>Password</label>
                         <span style={S.helper}>Minimum 8 characters</span>
                       </div>
-                      <input
-                        style={S.input}
-                        type="password"
-                        value={password}
-                        placeholder="Enter your password"
-                        onChange={(event) => setPassword(event.target.value)}
-                      />
+                      <div style={S.inputWrap}>
+                        <input
+                          style={S.inputInner}
+                          type={showPassword ? "text" : "password"}
+                          value={password}
+                          placeholder="Enter your password"
+                          onChange={(event) => {
+                            setPassword(event.target.value);
+                            setError("");
+                          }}
+                        />
+                        <button
+                          type="button"
+                          style={S.inputToggle}
+                          onClick={() => setShowPassword((value) => !value)}
+                        >
+                          {showPassword ? "Hide" : "Show"}
+                        </button>
+                      </div>
                     </div>
 
                     <div style={S.field}>
@@ -800,6 +877,13 @@ export function LoginModernPage(): React.JSX.Element {
                     {error ? <div style={S.error}>{error}</div> : null}
 
                     <div style={S.formActions}>
+                      <button
+                        type="button"
+                        style={S.textLink}
+                        onClick={() => handleModeChange("reset")}
+                      >
+                        Forgot password? Set it with OTP
+                      </button>
                       <button
                         type="submit"
                         disabled={passwordDisabled}
@@ -942,9 +1026,10 @@ export function LoginModernPage(): React.JSX.Element {
                             autoFocus
                             maxLength={10}
                             placeholder="9876543210"
-                            onChange={(event) =>
-                              setResetPhone(event.target.value.replace(/\D/g, "").slice(0, 10))
-                            }
+                            onChange={(event) => {
+                              setResetPhone(event.target.value.replace(/\D/g, "").slice(0, 10));
+                              setError("");
+                            }}
                           />
                           {resetPhone.length === 10 ? <div style={S.phoneValid}>OK</div> : null}
                         </div>
@@ -1006,24 +1091,48 @@ export function LoginModernPage(): React.JSX.Element {
                           <label style={S.label}>New password</label>
                           <span style={S.helper}>Minimum 8 characters</span>
                         </div>
-                        <input
-                          style={S.input}
-                          type="password"
-                          value={newPassword}
-                          placeholder="Create a strong password"
-                          onChange={(event) => setNewPassword(event.target.value)}
-                        />
+                        <div style={S.inputWrap}>
+                          <input
+                            style={S.inputInner}
+                            type={showNewPassword ? "text" : "password"}
+                            value={newPassword}
+                            placeholder="Create a strong password"
+                            onChange={(event) => {
+                              setNewPassword(event.target.value);
+                              setError("");
+                            }}
+                          />
+                          <button
+                            type="button"
+                            style={S.inputToggle}
+                            onClick={() => setShowNewPassword((value) => !value)}
+                          >
+                            {showNewPassword ? "Hide" : "Show"}
+                          </button>
+                        </div>
                       </div>
 
                       <div style={S.field}>
                         <label style={S.label}>Confirm password</label>
-                        <input
-                          style={S.input}
-                          type="password"
-                          value={confirmPassword}
-                          placeholder="Re-enter your password"
-                          onChange={(event) => setConfirmPassword(event.target.value)}
-                        />
+                        <div style={S.inputWrap}>
+                          <input
+                            style={S.inputInner}
+                            type={showConfirmPassword ? "text" : "password"}
+                            value={confirmPassword}
+                            placeholder="Re-enter your password"
+                            onChange={(event) => {
+                              setConfirmPassword(event.target.value);
+                              setError("");
+                            }}
+                          />
+                          <button
+                            type="button"
+                            style={S.inputToggle}
+                            onClick={() => setShowConfirmPassword((value) => !value)}
+                          >
+                            {showConfirmPassword ? "Hide" : "Show"}
+                          </button>
+                        </div>
                       </div>
 
                       {error ? <div style={S.error}>{error}</div> : null}
